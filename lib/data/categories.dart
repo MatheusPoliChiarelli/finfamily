@@ -18,15 +18,23 @@ class Category {
 
 class Categories {
   static const expenses = <Category>[
-    Category(id: 'moradia', name: 'Moradia', icon: Icons.home_outlined, color: 0xFF7F77DD),
     Category(id: 'mercado', name: 'Mercado', icon: Icons.shopping_cart_outlined, color: 0xFF5DCAA5),
-    Category(id: 'transporte', name: 'Transporte', icon: Icons.directions_car_outlined, color: 0xFF85B7EB),
-    Category(id: 'saude', name: 'Saúde', icon: Icons.favorite_outline, color: 0xFFED93B1),
-    Category(id: 'educacao', name: 'Educação', icon: Icons.school_outlined, color: 0xFFEF9F27),
+    Category(id: 'combustivel', name: 'Combustível', icon: Icons.local_gas_station_outlined, color: 0xFFEF9F27),
+    Category(id: 'energia', name: 'Energia', icon: Icons.bolt_outlined, color: 0xFFFAC775),
+    Category(id: 'agua', name: 'Água', icon: Icons.water_drop_outlined, color: 0xFF85B7EB),
+    Category(id: 'aluguel', name: 'Aluguel', icon: Icons.home_outlined, color: 0xFF7F77DD),
+    Category(id: 'unimed', name: 'Unimed', icon: Icons.local_hospital_outlined, color: 0xFFED93B1),
     Category(id: 'lazer', name: 'Lazer', icon: Icons.local_activity_outlined, color: 0xFFF0997B),
-    Category(id: 'alimentacao', name: 'Alimentação', icon: Icons.restaurant_outlined, color: 0xFF97C459),
-    Category(id: 'assinaturas', name: 'Assinaturas', icon: Icons.subscriptions_outlined, color: 0xFFAFA9EC),
-    Category(id: 'outros', name: 'Outros', icon: Icons.more_horiz, color: 0xFF888780),
+    Category(id: 'emprestimos', name: 'Empréstimos', icon: Icons.account_balance_outlined, color: 0xFFE24B4A),
+    Category(id: 'farmacia', name: 'Farmácia', icon: Icons.medication_outlined, color: 0xFFF4C0D1),
+    Category(id: 'contador', name: 'Contador', icon: Icons.calculate_outlined, color: 0xFFAFA9EC),
+    Category(id: 'impostos', name: 'Impostos', icon: Icons.receipt_long_outlined, color: 0xFFBA7517),
+    Category(id: 'singular', name: 'Singular', icon: Icons.apartment_outlined, color: 0xFF9FE1CB),
+    Category(id: 'celular', name: 'Celular', icon: Icons.smartphone_outlined, color: 0xFF378ADD),
+    Category(id: 'uber', name: 'Uber', icon: Icons.local_taxi_outlined, color: 0xFFB4B2A9),
+    Category(id: 'academia', name: 'Academia', icon: Icons.fitness_center_outlined, color: 0xFF97C459),
+    Category(id: 'meta_ads', name: 'Meta Ads', icon: Icons.campaign_outlined, color: 0xFF534AB7),
+    Category(id: 'outros', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780),
   ];
 
   static const incomes = <Category>[

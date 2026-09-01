@@ -98,11 +98,15 @@ class _BalanceFieldState extends State<BalanceField> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [CurrencyInputFormatter()],
                     onSubmitted: (_) => _commit(),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       filled: false,
                       isDense: true,
                       hintText: '0,00',
-                      prefixText: 'R\$ ',
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Text('R\$', style: AppTheme.uiMoney(14, color: AppColors.textSecondary)),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                       contentPadding: EdgeInsets.zero,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,

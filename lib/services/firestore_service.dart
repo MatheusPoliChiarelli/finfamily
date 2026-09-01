@@ -4,6 +4,8 @@ import '../models/app_transaction.dart';
 import '../models/budget.dart';
 import '../models/recurring_rule.dart';
 import '../utils/format.dart';
+import '../models/fixed_bill.dart';
+import '../models/fixed_bill.dart';
 
 class FirestoreService {
   FirestoreService(this.householdId);
@@ -17,6 +19,16 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _transactions => _house.collection('transactions');
   CollectionReference<Map<String, dynamic>> get _recurring => _house.collection('recurring');
   CollectionReference<Map<String, dynamic>> get _budgets => _house.collection('budgets');
+    CollectionReference<Map<String, dynamic>> get _fixedBills => _house.collection('fixedBills');
+
+  Stream<List<FixedBill>> fixedBills() => _fixedBills
+      .orderBy('amount', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs.map(FixedBill.fromDoc).toList());
+
+  Future<void> addFixedBill(FixedBill bill) => _fixedBills.add(bill.toMap());
+
+  Future<void> deleteFixedBill(String id) => _fixedBills.doc(id).delete();
 
   Stream<List<AppTransaction>> transactionsOfMonth(DateTime month) {
     final start = DateTime(month.year, month.month, 1);
@@ -57,7 +69,7 @@ class FirestoreService {
         'updatedBy': uid,
       }, SetOptions(merge: true));
 
-      
+
   Stream<List<RecurringRule>> recurringRules() => _recurring
       .orderBy('dayOfMonth')
       .snapshots()

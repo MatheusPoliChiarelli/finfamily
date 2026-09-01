@@ -40,6 +40,9 @@ class _TransactionDialogState extends State<_TransactionDialog> {
 
   Color get _accent => widget.isIncome ? AppColors.income : AppColors.expense;
 
+  bool get _needsDescription =>
+      _category.id == 'outros' || _category.id == 'outras_receitas';
+
   @override
   void initState() {
     super.initState();
@@ -61,7 +64,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     }
 
     final user = FirebaseAuth.instance.currentUser!;
-    final description = _description.text.trim();
+    final typed = _needsDescription ? _description.text.trim() : '';
 
     Navigator.of(context).pop(
       AppTransaction(
@@ -69,7 +72,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         amount: value,
         isIncome: widget.isIncome,
         date: widget.date,
-        description: description.isEmpty ? _category.name : description,
+        description: typed.isEmpty ? _category.name : typed,
         categoryId: _category.id,
         categoryName: _category.name,
         categoryColor: _category.color,
@@ -85,7 +88,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 470, maxHeight: 640),
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 700),
         child: CallbackShortcuts(
           bindings: {
             const SingleActivator(LogicalKeyboardKey.enter): _save,
@@ -144,7 +147,14 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [CurrencyInputFormatter()],
                     onSubmitted: (_) => _save(),
-                    decoration: const InputDecoration(hintText: '0,00', prefixText: 'R\$  '),
+                    decoration: InputDecoration(
+                      hintText: '0,00',
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.only(left: 16, right: 8),
+                        child: Text('R\$', style: AppTheme.uiMoney(15, color: AppColors.textSecondary)),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                    ),
                   ),
                   const SizedBox(height: 22),
                   Text('Categoria', style: AppTheme.ui(12, color: AppColors.textMuted)),
@@ -163,21 +173,17 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                       );
                     },
                   ),
-                  const SizedBox(height: 22),
-                  Row(
-                    children: [
-                      Text('Descrição', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                      const SizedBox(width: 6),
-                      Text('opcional', style: AppTheme.ui(11, color: AppColors.textMuted)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _description,
-                    style: AppTheme.ui(14),
-                    onSubmitted: (_) => _save(),
-                    decoration: const InputDecoration(hintText: 'Compra do mês, farmácia, uber'),
-                  ),
+                  if (_needsDescription) ...[
+                    const SizedBox(height: 22),
+                    Text('Descrição', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _description,
+                      style: AppTheme.ui(14),
+                      onSubmitted: (_) => _save(),
+                      decoration: const InputDecoration(hintText: 'Do que se trata'),
+                    ),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: 14),
                     Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),
