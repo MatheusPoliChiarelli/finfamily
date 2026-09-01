@@ -28,21 +28,27 @@ class AppSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 13,
-                  height: 13,
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.accent,
+                    color: AppColors.accentSoft,
+                    border: Border.all(color: AppColors.accent, width: 1),
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.accent.withValues(alpha: 0.35),
-                        blurRadius: 14,
+                        blurRadius: 16,
                         spreadRadius: 1,
                       ),
                     ],
                   ),
+                  child: Text(
+                    '\$',
+                    style: AppTheme.ui(15, color: AppColors.accent, weight: FontWeight.w500),
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 11),
                 Text('FinFamily', style: AppTheme.display(22)),
               ],
             ),

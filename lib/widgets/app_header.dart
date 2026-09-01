@@ -49,7 +49,12 @@ class AppHeader extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     final name = user?.displayName ?? 'Você';
     final email = user?.email ?? '';
-    final monthBalance = closingBalance - openingBalance;
+
+    final hasBoth = openingBalance != 0 && closingBalance != 0;
+    final monthBalance = hasBoth ? closingBalance - openingBalance : null;
+    final balanceColor = monthBalance == null
+        ? null
+        : (monthBalance >= 0 ? AppColors.income : AppColors.expense);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -67,7 +72,7 @@ class AppHeader extends StatelessWidget {
             _avatarMenu(name, email),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -92,7 +97,8 @@ class AppHeader extends StatelessWidget {
                 label: 'Balanço do mês',
                 icon: Icons.swap_vert,
                 value: monthBalance,
-                valueColor: monthBalance >= 0 ? AppColors.income : AppColors.expense,
+                valueColor: balanceColor,
+                borderColor: balanceColor,
               ),
             ],
           ),
@@ -107,25 +113,32 @@ class AppHeader extends StatelessWidget {
 
   Widget _monthSelector() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border, width: 0.5),
+        color: AppColors.accentSoft,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: AppColors.accent, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.28),
+            blurRadius: 18,
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _arrow(Icons.chevron_left, () => onShiftMonth(-1)),
+          _arrow(Icons.chevron_left, () => onShiftMonth(-1), AppColors.accent),
           SizedBox(
-            width: 138,
+            width: 168,
             child: Text(
               monthLabel(month),
               textAlign: TextAlign.center,
-              style: AppTheme.ui(13, weight: FontWeight.w500),
+              style: AppTheme.ui(16, color: AppColors.textPrimary, weight: FontWeight.w500),
             ),
           ),
-          _arrow(Icons.chevron_right, () => onShiftMonth(1)),
+          _arrow(Icons.chevron_right, () => onShiftMonth(1), AppColors.accent),
         ],
       ),
     );
@@ -274,13 +287,13 @@ class AppHeader extends StatelessWidget {
     );
   }
 
-  Widget _arrow(IconData icon, VoidCallback onTap) {
+  Widget _arrow(IconData icon, VoidCallback onTap, Color color) {
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
       child: Padding(
         padding: const EdgeInsets.all(6),
-        child: Icon(icon, size: 17, color: AppColors.textSecondary),
+        child: Icon(icon, size: 18, color: color),
       ),
     );
   }

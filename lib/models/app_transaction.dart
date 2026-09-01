@@ -12,6 +12,7 @@ class AppTransaction {
   final String createdBy;
   final String createdByName;
   final String? recurringId;
+  final DateTime? createdAt;
 
   const AppTransaction({
     required this.id,
@@ -25,9 +26,12 @@ class AppTransaction {
     required this.createdBy,
     required this.createdByName,
     this.recurringId,
+    this.createdAt,
   });
 
   bool get isRecurring => recurringId != null;
+
+  DateTime get sortKey => createdAt ?? date;
 
   factory AppTransaction.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
@@ -43,6 +47,7 @@ class AppTransaction {
       createdBy: d['createdBy'] as String? ?? '',
       createdByName: d['createdByName'] as String? ?? '',
       recurringId: d['recurringId'] as String?,
+      createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
     );
   }
 

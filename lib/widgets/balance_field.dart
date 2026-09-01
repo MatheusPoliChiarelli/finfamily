@@ -12,13 +12,17 @@ class BalanceField extends StatefulWidget {
     required this.value,
     this.onSave,
     this.valueColor,
+    this.borderColor,
+    this.emptyText = '--',
   });
 
   final String label;
   final IconData icon;
-  final double value;
+  final double? value;
   final ValueChanged<double>? onSave;
   final Color? valueColor;
+  final Color? borderColor;
+  final String emptyText;
 
   @override
   State<BalanceField> createState() => _BalanceFieldState();
@@ -48,7 +52,8 @@ class _BalanceFieldState extends State<BalanceField> {
 
   void _start() {
     if (_readOnly) return;
-    _controller.text = widget.value == 0 ? '' : currencyMask(widget.value);
+    final current = widget.value ?? 0;
+    _controller.text = current == 0 ? '' : currencyMask(current);
     setState(() => _editing = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focus.requestFocus();
@@ -64,16 +69,16 @@ class _BalanceFieldState extends State<BalanceField> {
 
   @override
   Widget build(BuildContext context) {
+    final border = _editing ? AppColors.accent : (widget.borderColor ?? AppColors.border);
+    final hasBorderAccent = widget.borderColor != null || _editing;
+
     return Container(
-      height: 44,
+      height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: _editing ? AppColors.accent : AppColors.border,
-          width: _editing ? 1 : 0.5,
-        ),
+        borderRadius: BorderRadius.circular(23),
+        border: Border.all(color: border, width: hasBorderAccent ? 1 : 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -113,11 +118,11 @@ class _BalanceFieldState extends State<BalanceField> {
                         children: [
                           Flexible(
                             child: Text(
-                              money(widget.value),
+                              widget.value == null ? widget.emptyText : money(widget.value!),
                               overflow: TextOverflow.ellipsis,
                               style: AppTheme.uiMoney(
                                 14,
-                                color: widget.valueColor,
+                                color: widget.value == null ? AppColors.textMuted : widget.valueColor,
                                 weight: FontWeight.w500,
                               ),
                             ),

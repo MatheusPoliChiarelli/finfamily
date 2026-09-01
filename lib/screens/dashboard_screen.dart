@@ -187,14 +187,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _overview(List<AppTransaction> transactions, bool loading) {
-    final dayTransactions = transactions.where((t) => t.date.day == _selectedDay).toList();
+    final dayTransactions = transactions.where((t) => t.date.day == _selectedDay).toList()
+      ..sort((a, b) => a.sortKey.compareTo(b.sortKey));
+
     final income = dayTransactions.where((t) => t.isIncome).fold<double>(0, (s, t) => s + t.amount);
     final expense = dayTransactions.where((t) => !t.isIncome).fold<double>(0, (s, t) => s + t.amount);
+    final dayBalance = income - expense;
+    final dayColor = dayBalance > 0
+        ? AppColors.income
+        : dayBalance < 0
+            ? AppColors.expense
+            : AppColors.accent;
 
     final spentByCategory = <String, double>{};
     for (final t in dayTransactions.where((t) => !t.isIncome)) {
       spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
     }
+
+    final dayLabelText = fullDayLabel(DateTime(_month.year, _month.month, _selectedDay));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
@@ -209,7 +219,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 14),
               Expanded(child: _metric('Saídas do dia', money(expense), AppColors.expense, false, Icons.arrow_upward)),
               const SizedBox(width: 14),
-              Expanded(child: _metric('Saldo do dia', money(income - expense), AppColors.accent, true, Icons.account_balance_wallet_outlined)),
+              Expanded(
+                child: _metric(
+                  'Saldo do dia',
+                  money(dayBalance),
+                  dayColor,
+                  true,
+                  Icons.account_balance_wallet_outlined,
+                  borderColor: dayBalance == 0 ? null : dayColor,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -218,12 +237,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final narrow = constraints.maxWidth < 900;
               final chart = _card(
                 title: 'Despesas por categoria',
-                subtitle: fullDayLabel(DateTime(_month.year, _month.month, _selectedDay)),
+                subtitle: dayLabelText,
                 child: CategoryChart(spent: spentByCategory),
               );
               final list = _card(
                 title: 'Lançamentos do dia',
-                subtitle: fullDayLabel(DateTime(_month.year, _month.month, _selectedDay)),
+                subtitle: dayLabelText,
                 child: loading
                     ? _spinner()
                     : TransactionList(
@@ -239,9 +258,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(flex: 5, child: chart),
+                  Expanded(child: chart),
                   const SizedBox(width: 14),
-                  Expanded(flex: 4, child: list),
+                  Expanded(child: list),
                 ],
               );
             },
@@ -325,9 +344,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(flex: 5, child: chart),
+                  Expanded(child: chart),
                   const SizedBox(width: 14),
-                  Expanded(flex: 4, child: list),
+                  Expanded(child: list),
                 ],
               );
             },
@@ -365,10 +384,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: AppTheme.ui(14, color: AppColors.accent, weight: FontWeight.w500)),
+          Text(title, style: AppTheme.ui(17, color: AppColors.accent, weight: FontWeight.w500)),
           if (subtitle != null) ...[
-            const SizedBox(height: 3),
-            Text(subtitle, style: AppTheme.ui(11, color: AppColors.textMuted)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: AppTheme.ui(12, color: AppColors.textMuted)),
           ],
           const SizedBox(height: 20),
           child,
@@ -377,16 +396,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _metric(String label, String value, Color color, bool highlight, IconData icon) {
+  Widget _metric(
+    String label,
+    String value,
+    Color color,
+    bool highlight,
+    IconData icon, {
+    Color? borderColor,
+  }) {
+    final border = borderColor ?? (highlight ? AppColors.borderAccent : AppColors.border);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         color: highlight ? AppColors.surfaceRaised : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: highlight ? AppColors.borderAccent : AppColors.border,
-          width: 0.5,
-        ),
+        border: Border.all(color: border, width: borderColor != null ? 1 : 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
