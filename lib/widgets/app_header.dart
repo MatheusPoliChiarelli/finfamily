@@ -61,7 +61,7 @@ class AppHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(title, style: AppTheme.display(26)),
+            Text(title, style: AppTheme.display(34)),
             const SizedBox(width: 20),
             _monthSelector(),
             const Spacer(),

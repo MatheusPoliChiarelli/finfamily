@@ -1,44 +1,38 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/categories.dart';
-import '../models/app_transaction.dart';
+import '../models/recurring_rule.dart';
 import '../theme/app_theme.dart';
 import '../utils/currency_input_formatter.dart';
 import '../utils/format.dart';
 
-Future<AppTransaction?> showTransactionDialog(
-  BuildContext context,
-  DateTime date, {
-  required bool isIncome,
-}) {
-  return showDialog<AppTransaction>(
+Future<RecurringRule?> showRecurringDialog(BuildContext context, DateTime month) {
+  return showDialog<RecurringRule>(
     context: context,
-    builder: (_) => _TransactionDialog(date: date, isIncome: isIncome),
+    builder: (_) => _RecurringDialog(month: month),
   );
 }
 
-class _TransactionDialog extends StatefulWidget {
-  const _TransactionDialog({required this.date, required this.isIncome});
+class _RecurringDialog extends StatefulWidget {
+  const _RecurringDialog({required this.month});
 
-  final DateTime date;
-  final bool isIncome;
+  final DateTime month;
 
   @override
-  State<_TransactionDialog> createState() => _TransactionDialogState();
+  State<_RecurringDialog> createState() => _RecurringDialogState();
 }
 
-class _TransactionDialogState extends State<_TransactionDialog> {
-  final _amount = TextEditingController();
+class _RecurringDialogState extends State<_RecurringDialog> {
   final _description = TextEditingController();
+  final _amount = TextEditingController();
+  final _day = TextEditingController(text: '5');
 
+  bool _isIncome = false;
   late Category _category;
   String? _error;
 
-  List<Category> get _options => widget.isIncome ? Categories.incomes : Categories.expenses;
-
-  Color get _accent => widget.isIncome ? AppColors.income : AppColors.expense;
+  List<Category> get _options => _isIncome ? Categories.incomes : Categories.expenses;
 
   @override
   void initState() {
@@ -48,33 +42,47 @@ class _TransactionDialogState extends State<_TransactionDialog> {
 
   @override
   void dispose() {
-    _amount.dispose();
     _description.dispose();
+    _amount.dispose();
+    _day.dispose();
     super.dispose();
+  }
+
+  void _switchType(bool income) {
+    setState(() {
+      _isIncome = income;
+      _category = _options.first;
+    });
   }
 
   void _save() {
     final value = parseCurrency(_amount.text);
+    final day = int.tryParse(_day.text) ?? 0;
+
+    if (_description.text.trim().isEmpty) {
+      setState(() => _error = 'Informe o nome da conta');
+      return;
+    }
     if (value <= 0) {
       setState(() => _error = 'Informe um valor válido');
       return;
     }
-
-    final user = FirebaseAuth.instance.currentUser!;
-    final description = _description.text.trim();
+    if (day < 1 || day > 31) {
+      setState(() => _error = 'O dia deve estar entre 1 e 31');
+      return;
+    }
 
     Navigator.of(context).pop(
-      AppTransaction(
+      RecurringRule(
         id: '',
+        description: _description.text.trim(),
         amount: value,
-        isIncome: widget.isIncome,
-        date: widget.date,
-        description: description.isEmpty ? _category.name : description,
+        isIncome: _isIncome,
         categoryId: _category.id,
         categoryName: _category.name,
         categoryColor: _category.color,
-        createdBy: user.uid,
-        createdByName: user.displayName ?? 'Alguém',
+        dayOfMonth: day,
+        startMonth: monthKey(widget.month),
       ),
     );
   }
@@ -85,7 +93,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 470, maxHeight: 640),
+        constraints: const BoxConstraints(maxWidth: 470, maxHeight: 680),
         child: CallbackShortcuts(
           bindings: {
             const SingleActivator(LogicalKeyboardKey.enter): _save,
@@ -99,52 +107,71 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Text('Nova conta fixa', style: AppTheme.display(24)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Será lançada automaticamente todo mês',
+                    style: AppTheme.ui(12, color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 22),
                   Row(
                     children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: _accent.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: _accent.withValues(alpha: 0.5), width: 0.5),
-                        ),
-                        child: Icon(
-                          widget.isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                          size: 17,
-                          color: _accent,
+                      Expanded(child: _typeButton('Saída', false, AppColors.expense, Icons.arrow_upward)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _typeButton('Entrada', true, AppColors.income, Icons.arrow_downward)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Nome da conta', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _description,
+                    autofocus: true,
+                    style: AppTheme.ui(14),
+                    decoration: const InputDecoration(hintText: 'Aluguel, internet, energia'),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text('Valor', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _amount,
+                              style: AppTheme.uiMoney(15),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [CurrencyInputFormatter()],
+                              decoration: const InputDecoration(hintText: '0,00', prefixText: 'R\$  '),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              widget.isIncome ? 'Nova entrada' : 'Nova saída',
-                              style: AppTheme.display(24),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              fullDayLabel(widget.date),
-                              style: AppTheme.ui(12, color: AppColors.textMuted),
+                            Text('Dia', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _day,
+                              style: AppTheme.uiMoney(15),
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(2),
+                              ],
+                              decoration: const InputDecoration(hintText: '5'),
                             ),
                           ],
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text('Valor', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _amount,
-                    autofocus: true,
-                    style: AppTheme.uiMoney(15),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [CurrencyInputFormatter()],
-                    onSubmitted: (_) => _save(),
-                    decoration: const InputDecoration(hintText: '0,00', prefixText: 'R\$  '),
                   ),
                   const SizedBox(height: 22),
                   Text('Categoria', style: AppTheme.ui(12, color: AppColors.textMuted)),
@@ -162,21 +189,6 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                             .toList(),
                       );
                     },
-                  ),
-                  const SizedBox(height: 22),
-                  Row(
-                    children: [
-                      Text('Descrição', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                      const SizedBox(width: 6),
-                      Text('opcional', style: AppTheme.ui(11, color: AppColors.textMuted)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _description,
-                    style: AppTheme.ui(14),
-                    onSubmitted: (_) => _save(),
-                    decoration: const InputDecoration(hintText: 'Compra do mês, farmácia, uber'),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 14),
@@ -250,6 +262,41 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                   12,
                   color: selected ? AppColors.textPrimary : AppColors.textSecondary,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _typeButton(String label, bool income, Color color, IconData icon) {
+    final selected = _isIncome == income;
+    return InkWell(
+      onTap: () => _switchType(income),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 46,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.12) : AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? color : AppColors.border,
+            width: selected ? 1 : 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: selected ? color : AppColors.textSecondary),
+            const SizedBox(width: 9),
+            Text(
+              label,
+              style: AppTheme.ui(
+                14,
+                color: selected ? color : AppColors.textSecondary,
+                weight: selected ? FontWeight.w500 : FontWeight.w400,
               ),
             ),
           ],

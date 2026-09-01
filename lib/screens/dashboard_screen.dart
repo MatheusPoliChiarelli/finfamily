@@ -14,6 +14,8 @@ import '../widgets/budget_dialog.dart';
 import '../widgets/category_chart.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_list.dart';
+import '../models/recurring_rule.dart';
+import '../widgets/recurring_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -60,6 +62,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       }
     }
+  }
+
+  Future<void> _newRecurring() async {
+    final rule = await showRecurringDialog(context, _month);
+    if (rule != null) await _fs!.addRecurring(rule);
   }
 
   Future<void> _materialize() async {
@@ -154,9 +161,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (context, txSnap) {
                       final transactions = txSnap.data ?? const <AppTransaction>[];
                       final loading = txSnap.connectionState == ConnectionState.waiting;
-                      return _section == 'summary'
-                          ? _summaryView(transactions, loading)
-                          : _overview(transactions, loading);
+                      return switch (_section) {
+                        'summary' => _summaryView(transactions, loading),
+                        'fixed' => _fixedView(),
+                        _ => _overview(transactions, loading),
+                      };
                     },
                   );
                 },
@@ -181,8 +190,135 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onNewExpense: () => _newTransaction(isIncome: false),
       onNewIncome: () => _newTransaction(isIncome: true),
       onSignOut: _auth.signOut,
-      title: _section == 'summary' ? 'Resumo do mês' : 'Visão geral',
-      showDayStrip: _section != 'summary',
+      title: switch (_section) {
+        'summary' => 'Resumo do mês',
+        'fixed' => 'Contas fixas',
+        _ => 'Visão geral',
+      },
+      showDayStrip: _section == 'overview',
+    );
+  }
+
+
+  Widget _fixedView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _header(),
+          const SizedBox(height: 22),
+          StreamBuilder<List<RecurringRule>>(
+            stream: _fs!.recurringRules(),
+            builder: (context, snap) {
+              final rules = snap.data ?? const <RecurringRule>[];
+              final total = rules
+                  .where((r) => !r.isIncome && r.active)
+                  .fold<double>(0, (s, r) => s + r.amount);
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: _miniStat('Total mensal em contas fixas', money(total))),
+                      const SizedBox(width: 14),
+                      Expanded(child: _miniStat('Contas cadastradas', '${rules.length}')),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: SizedBox(
+                          height: 46,
+                          child: FilledButton.icon(
+                            onPressed: _newRecurring,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Nova conta fixa'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.accent,
+                              foregroundColor: AppColors.onAccent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _card(
+                    title: 'Contas fixas da casa',
+                    subtitle: 'Lançadas automaticamente a cada mês',
+                    child: snap.connectionState == ConnectionState.waiting
+                        ? _spinner()
+                        : rules.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 40),
+                                child: Center(
+                                  child: Text(
+                                    'Nenhuma conta fixa cadastrada',
+                                    style: AppTheme.ui(13, color: AppColors.textMuted),
+                                  ),
+                                ),
+                              )
+                            : Column(children: rules.map(_recurringRow).toList()),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recurringRow(RecurringRule r) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFF1F2429), width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Categories.byId(r.categoryId).icon, size: 17, color: Color(r.categoryColor)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(r.description, style: AppTheme.ui(14)),
+                const SizedBox(height: 3),
+                Text(
+                  '${r.categoryName} · todo dia ${r.dayOfMonth}',
+                  style: AppTheme.ui(11, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            money(r.amount),
+            style: AppTheme.uiMoney(
+              14,
+              color: r.isIncome ? AppColors.income : AppColors.expense,
+              weight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 10),
+          InkWell(
+            onTap: () => _fs!.deleteRecurring(r.id),
+            customBorder: const CircleBorder(),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.delete_outline, size: 16, color: AppColors.textMuted),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
