@@ -7,14 +7,17 @@ class AppColors {
   static const surface = Color(0xFF16191C);
   static const surfaceRaised = Color(0xFF1C2024);
   static const border = Color(0xFF262B30);
-  static const borderAccent = Color(0xFF3A3320);
+  static const borderAccent = Color(0xFF1D3D5C);
 
   static const textPrimary = Color(0xFFECEDEE);
   static const textSecondary = Color(0xFF9AA1A8);
   static const textMuted = Color(0xFF6B737B);
 
-  static const accent = Color(0xFFC9A96A);
-  static const onAccent = Color(0xFF2A2113);
+  static const accent = Color(0xFF4DA3FF);
+  static const accentHover = Color(0xFF7CC5FF);
+  static const accentSoft = Color(0xFF15263A);
+  static const onAccent = Color(0xFF08121F);
+
   static const income = Color(0xFF5FD4A0);
   static const expense = Color(0xFFE0785F);
 }
@@ -62,6 +65,7 @@ class AppTheme {
         ),
         textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
         dividerColor: AppColors.border,
+        dialogTheme: const DialogThemeData(backgroundColor: AppColors.surface),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: AppColors.surfaceRaised,

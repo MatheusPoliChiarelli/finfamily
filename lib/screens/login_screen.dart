@@ -83,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Finanças da família', style: AppTheme.display(30)),
+                  Text('FinFamily', style: AppTheme.display(30)),
                   const SizedBox(height: 8),
                   Text(
                     _isSignUp
