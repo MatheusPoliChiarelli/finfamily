@@ -13,7 +13,7 @@ import '../widgets/app_sidebar.dart';
 import '../widgets/budget_dialog.dart';
 import '../widgets/category_chart.dart';
 import '../widgets/transaction_dialog.dart';
-
+import '../widgets/transaction_list.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -62,10 +62,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _saveOpeningBalance(double value) async {
-    await _fs!.saveOpeningBalance(_month, value, FirebaseAuth.instance.currentUser!.uid);
-  }
-
   Future<void> _materialize() async {
     final user = FirebaseAuth.instance.currentUser!;
     await _fs!.ensureRecurringForMonth(_month, user.uid, user.displayName ?? 'Alguém');
@@ -79,23 +75,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     setState(() {
       _month = next;
+      _selectedDay = isCurrent ? now.day : _selectedDay.clamp(1, lastDay);
     });
     await _materialize();
   }
 
   void _onSelectDay(int day) => setState(() => _selectedDay = day);
 
+  String get _uid => FirebaseAuth.instance.currentUser!.uid;
+
+  Future<void> _saveOpeningBalance(double value) => _fs!.saveOpeningBalance(_month, value, _uid);
+
+  Future<void> _saveClosingBalance(double value) => _fs!.saveClosingBalance(_month, value, _uid);
+
   Future<void> _newTransaction({required bool isIncome}) async {
     final date = DateTime(_month.year, _month.month, _selectedDay);
     final transaction = await showTransactionDialog(context, date, isIncome: isIncome);
     if (transaction != null) await _fs!.addTransaction(transaction);
   }
+
   Future<void> _onSection(String id) async {
     if (id == 'budget') {
       final limits = await showBudgetDialog(context, _budget.limits);
-      if (limits != null) {
-        await _fs!.saveBudget(_month, limits, FirebaseAuth.instance.currentUser!.uid);
-      }
+      if (limits != null) await _fs!.saveBudget(_month, limits, _uid);
       return;
     }
     setState(() => _section = id);
@@ -151,7 +153,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     stream: _fs!.transactionsOfMonth(_month),
                     builder: (context, txSnap) {
                       final transactions = txSnap.data ?? const <AppTransaction>[];
-                      return _content(transactions, txSnap.connectionState);
+                      final loading = txSnap.connectionState == ConnectionState.waiting;
+                      return _section == 'summary'
+                          ? _summaryView(transactions, loading)
+                          : _overview(transactions, loading);
                     },
                   );
                 },
@@ -163,7 +168,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _content(List<AppTransaction> transactions, ConnectionState state) {
+  Widget _header() {
+    return AppHeader(
+      month: _month,
+      selectedDay: _selectedDay,
+      openingBalance: _budget.openingBalance,
+      closingBalance: _budget.closingBalance,
+      onShiftMonth: _shiftMonth,
+      onSelectDay: _onSelectDay,
+      onSaveOpeningBalance: _saveOpeningBalance,
+      onSaveClosingBalance: _saveClosingBalance,
+      onNewExpense: () => _newTransaction(isIncome: false),
+      onNewIncome: () => _newTransaction(isIncome: true),
+      onSignOut: _auth.signOut,
+      title: _section == 'summary' ? 'Resumo do mês' : 'Visão geral',
+      showDayStrip: _section != 'summary',
+    );
+  }
+
+  Widget _overview(List<AppTransaction> transactions, bool loading) {
+    final dayTransactions = transactions.where((t) => t.date.day == _selectedDay).toList();
+    final income = dayTransactions.where((t) => t.isIncome).fold<double>(0, (s, t) => s + t.amount);
+    final expense = dayTransactions.where((t) => !t.isIncome).fold<double>(0, (s, t) => s + t.amount);
+
+    final spentByCategory = <String, double>{};
+    for (final t in dayTransactions.where((t) => !t.isIncome)) {
+      spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _header(),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Expanded(child: _metric('Entradas do dia', money(income), AppColors.income, false, Icons.arrow_downward)),
+              const SizedBox(width: 14),
+              Expanded(child: _metric('Saídas do dia', money(expense), AppColors.expense, false, Icons.arrow_upward)),
+              const SizedBox(width: 14),
+              Expanded(child: _metric('Saldo do dia', money(income - expense), AppColors.accent, true, Icons.account_balance_wallet_outlined)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 900;
+              final chart = _card(
+                title: 'Despesas por categoria',
+                subtitle: fullDayLabel(DateTime(_month.year, _month.month, _selectedDay)),
+                child: CategoryChart(spent: spentByCategory),
+              );
+              final list = _card(
+                title: 'Lançamentos do dia',
+                subtitle: fullDayLabel(DateTime(_month.year, _month.month, _selectedDay)),
+                child: loading
+                    ? _spinner()
+                    : TransactionList(
+                        transactions: dayTransactions,
+                        onDelete: (id) => _fs!.deleteTransaction(id),
+                        emptyMessage: 'Nada lançado neste dia',
+                        showDate: false,
+                      ),
+              );
+              if (narrow) {
+                return Column(children: [chart, const SizedBox(height: 14), list]);
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 5, child: chart),
+                  const SizedBox(width: 14),
+                  Expanded(flex: 4, child: list),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryView(List<AppTransaction> transactions, bool loading) {
     final income = transactions.where((t) => t.isIncome).fold<double>(0, (s, t) => s + t.amount);
     final expense = transactions.where((t) => !t.isIncome).fold<double>(0, (s, t) => s + t.amount);
     final balance = _budget.openingBalance + income - expense;
@@ -185,17 +273,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppHeader(
-            month: _month,
-            selectedDay: _selectedDay,
-            openingBalance: _budget.openingBalance,
-            onShiftMonth: _shiftMonth,
-            onSelectDay: _onSelectDay,
-            onSaveOpeningBalance: _saveOpeningBalance,
-            onNewExpense: () => _newTransaction(isIncome: false),
-            onNewIncome: () => _newTransaction(isIncome: true),
-            onSignOut: _auth.signOut,
-          ),
+          _header(),
           const SizedBox(height: 22),
           Row(
             children: [
@@ -217,6 +295,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   topCategory == null ? '--' : Categories.byId(topCategory.key).name,
                 ),
               ),
+              const SizedBox(width: 14),
+              Expanded(child: _miniStat('Total de lançamentos', '${transactions.length}')),
             ],
           ),
           const SizedBox(height: 14),
@@ -225,11 +305,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final narrow = constraints.maxWidth < 900;
               final chart = _card(
                 title: 'Despesas por categoria',
+                subtitle: monthLabel(_month),
                 child: CategoryChart(spent: spentByCategory),
               );
               final list = _card(
-                title: 'Lançamentos do mês',
-                child: _transactionsList(transactions, state),
+                title: 'Todos os lançamentos',
+                subtitle: monthLabel(_month),
+                child: loading
+                    ? _spinner()
+                    : TransactionList(
+                        transactions: transactions,
+                        onDelete: (id) => _fs!.deleteTransaction(id),
+                        emptyMessage: 'Nenhum lançamento neste mês',
+                      ),
               );
               if (narrow) {
                 return Column(children: [chart, const SizedBox(height: 14), list]);
@@ -249,15 +337,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _spinner() => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+          ),
+        ),
+      );
 
   int _daysElapsed() {
     final now = DateTime.now();
     if (now.year == _month.year && now.month == _month.month) return now.day;
-    int _selectedDay = DateTime.now().day;
     return DateTime(_month.year, _month.month + 1, 0).day;
   }
 
-  Widget _card({required String title, required Widget child}) {
+  Widget _card({required String title, String? subtitle, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -268,7 +365,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: AppTheme.ui(14, weight: FontWeight.w500)),
+          Text(title, style: AppTheme.ui(14, color: AppColors.accent, weight: FontWeight.w500)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 3),
+            Text(subtitle, style: AppTheme.ui(11, color: AppColors.textMuted)),
+          ],
           const SizedBox(height: 20),
           child,
         ],
@@ -292,9 +393,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: AppColors.textMuted),
+              Icon(icon, size: 14, color: AppColors.accent),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.ui(12, color: AppColors.textMuted)),
+              Text(label, style: AppTheme.ui(12, color: AppColors.accent)),
             ],
           ),
           const SizedBox(height: 10),
@@ -318,96 +419,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: AppTheme.ui(12, color: AppColors.textMuted))),
+          Expanded(child: Text(label, style: AppTheme.ui(12, color: AppColors.accent))),
           Text(value, style: AppTheme.uiMoney(13, weight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _transactionsList(List<AppTransaction> transactions, ConnectionState state) {
-    if (state == ConnectionState.waiting) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
-          ),
-        ),
-      );
-    }
-
-    if (transactions.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: Text(
-            'Nenhum lançamento neste mês',
-            style: AppTheme.ui(13, color: AppColors.textMuted),
-          ),
-        ),
-      );
-    }
-
-    return Column(children: transactions.map(_transactionRow).toList());
-  }
-
-  Widget _transactionRow(AppTransaction t) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF1F2429), width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceRaised,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(Categories.byId(t.categoryId).icon, size: 16, color: Color(t.categoryColor)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(t.description, style: AppTheme.ui(13), overflow: TextOverflow.ellipsis),
-                    ),
-                    if (t.isRecurring) ...[
-                      const SizedBox(width: 6),
-                      const Icon(Icons.repeat, size: 13, color: AppColors.accent),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${t.categoryName} · ${t.createdByName} · ${dayLabel(t.date)}',
-                  style: AppTheme.ui(11, color: AppColors.textMuted),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '${t.isIncome ? '+' : '-'} ${plain(t.amount)}',
-            style: AppTheme.uiMoney(13, color: t.isIncome ? AppColors.income : AppColors.expense),
-          ),
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: () => _fs!.deleteTransaction(t.id),
-            customBorder: const CircleBorder(),
-            child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.close, size: 14, color: AppColors.textMuted),
-            ),
-          ),
         ],
       ),
     );

@@ -4,11 +4,13 @@ class Budget {
   final String month;
   final Map<String, double> limits;
   final double openingBalance;
+  final double closingBalance;
 
   const Budget({
     required this.month,
     required this.limits,
     this.openingBalance = 0,
+    this.closingBalance = 0,
   });
 
   factory Budget.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -18,15 +20,11 @@ class Budget {
       month: doc.id,
       limits: raw.map((k, v) => MapEntry(k, (v as num).toDouble())),
       openingBalance: (data?['openingBalance'] as num?)?.toDouble() ?? 0,
+      closingBalance: (data?['closingBalance'] as num?)?.toDouble() ?? 0,
     );
   }
 
-  double limitFor(String categoryId) => limits[categoryId] ?? 0;
+  double get monthBalance => closingBalance - openingBalance;
 
-  Map<String, dynamic> toMap(String uid) => {
-        'limits': limits,
-        'openingBalance': openingBalance,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': uid,
-      };
+  double limitFor(String categoryId) => limits[categoryId] ?? 0;
 }

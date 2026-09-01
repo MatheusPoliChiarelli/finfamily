@@ -50,6 +50,14 @@ class FirestoreService {
         'updatedBy': uid,
       }, SetOptions(merge: true));
 
+  Future<void> saveClosingBalance(DateTime month, double value, String uid) =>
+      _budgets.doc(monthKey(month)).set({
+        'closingBalance': value,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': uid,
+      }, SetOptions(merge: true));
+
+      
   Stream<List<RecurringRule>> recurringRules() => _recurring
       .orderBy('dayOfMonth')
       .snapshots()

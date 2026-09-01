@@ -9,19 +9,19 @@ import '../utils/format.dart';
 
 Future<AppTransaction?> showTransactionDialog(
   BuildContext context,
-  DateTime initialDate, {
-  bool isIncome = false,
+  DateTime date, {
+  required bool isIncome,
 }) {
   return showDialog<AppTransaction>(
     context: context,
-    builder: (_) => _TransactionDialog(initialDate: initialDate, isIncome: isIncome),
+    builder: (_) => _TransactionDialog(date: date, isIncome: isIncome),
   );
 }
 
 class _TransactionDialog extends StatefulWidget {
-  const _TransactionDialog({required this.initialDate, required this.isIncome});
+  const _TransactionDialog({required this.date, required this.isIncome});
 
-  final DateTime initialDate;
+  final DateTime date;
   final bool isIncome;
 
   @override
@@ -32,16 +32,16 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   final _amount = TextEditingController();
   final _description = TextEditingController();
 
-  late bool _isIncome;
-  late DateTime _date;
   late Category _category;
   String? _error;
+
+  List<Category> get _options => widget.isIncome ? Categories.incomes : Categories.expenses;
+
+  Color get _accent => widget.isIncome ? AppColors.income : AppColors.expense;
 
   @override
   void initState() {
     super.initState();
-    _date = widget.initialDate;
-    _isIncome = widget.isIncome;
     _category = _options.first;
   }
 
@@ -50,25 +50,6 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     _amount.dispose();
     _description.dispose();
     super.dispose();
-  }
-
-  List<Category> get _options => _isIncome ? Categories.incomes : Categories.expenses;
-
-  void _switchType(bool income) {
-    setState(() {
-      _isIncome = income;
-      _category = _options.first;
-    });
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) setState(() => _date = picked);
   }
 
   void _save() {
@@ -85,8 +66,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       AppTransaction(
         id: '',
         amount: value,
-        isIncome: _isIncome,
-        date: _date,
+        isIncome: widget.isIncome,
+        date: widget.date,
         description: description.isEmpty ? _category.name : description,
         categoryId: _category.id,
         categoryName: _category.name,
@@ -103,23 +84,49 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 680),
+        constraints: const BoxConstraints(maxWidth: 470, maxHeight: 640),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_isIncome ? 'Nova entrada' : 'Nova saída', style: AppTheme.display(24)),
-              const SizedBox(height: 22),
               Row(
                 children: [
-                  Expanded(child: _typeButton('Saída', false, AppColors.expense, Icons.arrow_upward)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _typeButton('Entrada', true, AppColors.income, Icons.arrow_downward)),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: _accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _accent.withValues(alpha: 0.5), width: 0.5),
+                    ),
+                    child: Icon(
+                      widget.isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+                      size: 17,
+                      color: _accent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.isIncome ? 'Nova entrada' : 'Nova saída',
+                          style: AppTheme.display(24),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          fullDayLabel(widget.date),
+                          style: AppTheme.ui(12, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               Text('Valor', style: AppTheme.ui(12, color: AppColors.textMuted)),
               const SizedBox(height: 8),
               TextField(
@@ -130,38 +137,24 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                 inputFormatters: [CurrencyInputFormatter()],
                 decoration: const InputDecoration(hintText: '0,00', prefixText: 'R\$  '),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
               Text('Categoria', style: AppTheme.ui(12, color: AppColors.textMuted)),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _options.map(_categoryChip).toList(),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const columns = 3;
+                  const gap = 8.0;
+                  final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: _options
+                        .map((c) => SizedBox(width: width, child: _categoryChip(c)))
+                        .toList(),
+                  );
+                },
               ),
-              const SizedBox(height: 20),
-              Text('Data', style: AppTheme.ui(12, color: AppColors.textMuted)),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: _pickDate,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  height: 52,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border, width: 0.5),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_today_outlined, size: 15, color: AppColors.textSecondary),
-                      const SizedBox(width: 12),
-                      Text(dayLabel(_date), style: AppTheme.ui(14)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
               Row(
                 children: [
                   Text('Descrição', style: AppTheme.ui(12, color: AppColors.textMuted)),
@@ -198,23 +191,23 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     final selected = _category.id == c.id;
     return InkWell(
       onTap: () => setState(() => _category = c),
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(9, 8, 14, 8),
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: selected ? AppColors.accentSoft : AppColors.surfaceRaised,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? AppColors.accent : AppColors.border,
             width: selected ? 1 : 0.5,
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 15,
-              height: 15,
+              width: 14,
+              height: 14,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -225,8 +218,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
               child: selected
                   ? Center(
                       child: Container(
-                        width: 7,
-                        height: 7,
+                        width: 6,
+                        height: 6,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.accent,
@@ -235,49 +228,17 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                     )
                   : null,
             ),
-            const SizedBox(width: 8),
-            Icon(c.icon, size: 14, color: Color(c.color)),
             const SizedBox(width: 7),
-            Text(
-              c.name,
-              style: AppTheme.ui(
-                12,
-                color: selected ? AppColors.textPrimary : AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _typeButton(String label, bool income, Color color, IconData icon) {
-    final selected = _isIncome == income;
-    return InkWell(
-      onTap: () => _switchType(income),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        height: 48,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.12) : AppColors.surfaceRaised,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? color : AppColors.border,
-            width: selected ? 1 : 0.5,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: selected ? color : AppColors.textSecondary),
-            const SizedBox(width: 9),
-            Text(
-              label,
-              style: AppTheme.ui(
-                14,
-                color: selected ? color : AppColors.textSecondary,
-                weight: selected ? FontWeight.w500 : FontWeight.w400,
+            Icon(c.icon, size: 14, color: Color(c.color)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                c.name,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.ui(
+                  12,
+                  color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+                ),
               ),
             ),
           ],

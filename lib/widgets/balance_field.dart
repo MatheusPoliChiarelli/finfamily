@@ -4,24 +4,32 @@ import '../theme/app_theme.dart';
 import '../utils/currency_input_formatter.dart';
 import '../utils/format.dart';
 
-class OpeningBalanceField extends StatefulWidget {
-  const OpeningBalanceField({
+class BalanceField extends StatefulWidget {
+  const BalanceField({
     super.key,
+    required this.label,
+    required this.icon,
     required this.value,
-    required this.onSave,
+    this.onSave,
+    this.valueColor,
   });
 
+  final String label;
+  final IconData icon;
   final double value;
-  final ValueChanged<double> onSave;
+  final ValueChanged<double>? onSave;
+  final Color? valueColor;
 
   @override
-  State<OpeningBalanceField> createState() => _OpeningBalanceFieldState();
+  State<BalanceField> createState() => _BalanceFieldState();
 }
 
-class _OpeningBalanceFieldState extends State<OpeningBalanceField> {
+class _BalanceFieldState extends State<BalanceField> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   bool _editing = false;
+
+  bool get _readOnly => widget.onSave == null;
 
   @override
   void initState() {
@@ -39,6 +47,7 @@ class _OpeningBalanceFieldState extends State<OpeningBalanceField> {
   }
 
   void _start() {
+    if (_readOnly) return;
     _controller.text = widget.value == 0 ? '' : currencyMask(widget.value);
     setState(() => _editing = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -50,7 +59,7 @@ class _OpeningBalanceFieldState extends State<OpeningBalanceField> {
   void _commit() {
     final parsed = parseCurrency(_controller.text);
     setState(() => _editing = false);
-    if (parsed != widget.value) widget.onSave(parsed);
+    if (parsed != widget.value) widget.onSave?.call(parsed);
   }
 
   @override
@@ -69,12 +78,12 @@ class _OpeningBalanceFieldState extends State<OpeningBalanceField> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.savings_outlined, size: 15, color: AppColors.textMuted),
+          Icon(widget.icon, size: 15, color: AppColors.accent),
           const SizedBox(width: 9),
-          Text('Saldo inicial', style: AppTheme.ui(12, color: AppColors.textMuted)),
+          Text(widget.label, style: AppTheme.ui(12, color: AppColors.accent)),
           const SizedBox(width: 12),
           SizedBox(
-            width: 132,
+            width: 124,
             child: _editing
                 ? TextField(
                     controller: _controller,
@@ -106,11 +115,17 @@ class _OpeningBalanceFieldState extends State<OpeningBalanceField> {
                             child: Text(
                               money(widget.value),
                               overflow: TextOverflow.ellipsis,
-                              style: AppTheme.uiMoney(14, weight: FontWeight.w500),
+                              style: AppTheme.uiMoney(
+                                14,
+                                color: widget.valueColor,
+                                weight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.edit_outlined, size: 13, color: AppColors.textMuted),
+                          if (!_readOnly) ...[
+                            const SizedBox(width: 8),
+                            const Icon(Icons.edit_outlined, size: 13, color: AppColors.textMuted),
+                          ],
                         ],
                       ),
                     ),

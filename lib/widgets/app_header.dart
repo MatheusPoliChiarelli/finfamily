@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
-import 'opening_balance_field.dart';
+import 'balance_field.dart';
 
 class AppHeader extends StatelessWidget {
   const AppHeader({
@@ -11,23 +11,31 @@ class AppHeader extends StatelessWidget {
     required this.month,
     required this.selectedDay,
     required this.openingBalance,
+    required this.closingBalance,
     required this.onShiftMonth,
     required this.onSelectDay,
     required this.onSaveOpeningBalance,
+    required this.onSaveClosingBalance,
     required this.onNewExpense,
     required this.onNewIncome,
     required this.onSignOut,
+    this.title = 'Visão geral',
+    this.showDayStrip = true,
   });
 
   final DateTime month;
   final int selectedDay;
   final double openingBalance;
+  final double closingBalance;
   final ValueChanged<int> onShiftMonth;
   final ValueChanged<int> onSelectDay;
   final ValueChanged<double> onSaveOpeningBalance;
+  final ValueChanged<double> onSaveClosingBalance;
   final VoidCallback onNewExpense;
   final VoidCallback onNewIncome;
   final VoidCallback onSignOut;
+  final String title;
+  final bool showDayStrip;
 
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
@@ -41,21 +49,16 @@ class AppHeader extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     final name = user?.displayName ?? 'Você';
     final email = user?.email ?? '';
+    final monthBalance = closingBalance - openingBalance;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Text('Visão geral', style: AppTheme.display(26)),
-            const SizedBox(width: 22),
+            Text(title, style: AppTheme.display(26)),
+            const SizedBox(width: 20),
             _monthSelector(),
-            const SizedBox(width: 12),
-            OpeningBalanceField(
-              key: ValueKey('${monthKey(month)}-$openingBalance'),
-              value: openingBalance,
-              onSave: onSaveOpeningBalance,
-            ),
             const Spacer(),
             _actionButton('Saída', Icons.arrow_upward, AppColors.expense, onNewExpense),
             const SizedBox(width: 10),
@@ -64,8 +67,40 @@ class AppHeader extends StatelessWidget {
             _avatarMenu(name, email),
           ],
         ),
-        const SizedBox(height: 20),
-        _dayStrip(),
+        const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              BalanceField(
+                key: ValueKey('open-${monthKey(month)}-$openingBalance'),
+                label: 'Saldo inicial',
+                icon: Icons.savings_outlined,
+                value: openingBalance,
+                onSave: onSaveOpeningBalance,
+              ),
+              const SizedBox(width: 12),
+              BalanceField(
+                key: ValueKey('close-${monthKey(month)}-$closingBalance'),
+                label: 'Saldo final',
+                icon: Icons.account_balance_outlined,
+                value: closingBalance,
+                onSave: onSaveClosingBalance,
+              ),
+              const SizedBox(width: 12),
+              BalanceField(
+                label: 'Balanço do mês',
+                icon: Icons.swap_vert,
+                value: monthBalance,
+                valueColor: monthBalance >= 0 ? AppColors.income : AppColors.expense,
+              ),
+            ],
+          ),
+        ),
+        if (showDayStrip) ...[
+          const SizedBox(height: 18),
+          _dayStrip(),
+        ],
       ],
     );
   }

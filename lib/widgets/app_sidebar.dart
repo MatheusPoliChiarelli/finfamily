@@ -48,6 +48,7 @@ class AppSidebar extends StatelessWidget {
             ),
           ),
           _item('overview', Icons.grid_view_outlined, 'Visão geral'),
+          _item('summary', Icons.insights_outlined, 'Resumo do mês'),
           _item('budget', Icons.pie_chart_outline, 'Orçamento'),
           _item('recurring', Icons.repeat, 'Recorrentes'),
           const Spacer(),
