@@ -4,19 +4,25 @@ import 'package:flutter/material.dart';
 import '../data/categories.dart';
 import '../models/app_transaction.dart';
 import '../theme/app_theme.dart';
+import '../utils/currency_input_formatter.dart';
 import '../utils/format.dart';
 
-Future<AppTransaction?> showTransactionDialog(BuildContext context, DateTime month) {
+Future<AppTransaction?> showTransactionDialog(
+  BuildContext context,
+  DateTime initialDate, {
+  bool isIncome = false,
+}) {
   return showDialog<AppTransaction>(
     context: context,
-    builder: (_) => _TransactionDialog(month: month),
+    builder: (_) => _TransactionDialog(initialDate: initialDate, isIncome: isIncome),
   );
 }
 
 class _TransactionDialog extends StatefulWidget {
-  const _TransactionDialog({required this.month});
+  const _TransactionDialog({required this.initialDate, required this.isIncome});
 
-  final DateTime month;
+  final DateTime initialDate;
+  final bool isIncome;
 
   @override
   State<_TransactionDialog> createState() => _TransactionDialogState();
@@ -26,7 +32,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   final _amount = TextEditingController();
   final _description = TextEditingController();
 
-  bool _isIncome = false;
+  late bool _isIncome;
   late DateTime _date;
   late Category _category;
   String? _error;
@@ -34,11 +40,9 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _date = (now.year == widget.month.year && now.month == widget.month.month)
-        ? now
-        : DateTime(widget.month.year, widget.month.month, 1);
-    _category = Categories.expenses.first;
+    _date = widget.initialDate;
+    _isIncome = widget.isIncome;
+    _category = _options.first;
   }
 
   @override
@@ -68,9 +72,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   }
 
   void _save() {
-    final raw = _amount.text.replaceAll('.', '').replaceAll(',', '.');
-    final value = double.tryParse(raw);
-    if (value == null || value <= 0) {
+    final value = parseCurrency(_amount.text);
+    if (value <= 0) {
       setState(() => _error = 'Informe um valor válido');
       return;
     }
@@ -107,13 +110,13 @@ class _TransactionDialogState extends State<_TransactionDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Novo lançamento', style: AppTheme.display(24)),
+              Text(_isIncome ? 'Nova entrada' : 'Nova saída', style: AppTheme.display(24)),
               const SizedBox(height: 22),
               Row(
                 children: [
-                  Expanded(child: _typeButton('Saída', false, AppColors.expense, Icons.arrow_outward)),
+                  Expanded(child: _typeButton('Saída', false, AppColors.expense, Icons.arrow_upward)),
                   const SizedBox(width: 10),
-                  Expanded(child: _typeButton('Entrada', true, AppColors.income, Icons.call_received)),
+                  Expanded(child: _typeButton('Entrada', true, AppColors.income, Icons.arrow_downward)),
                 ],
               ),
               const SizedBox(height: 20),
@@ -124,6 +127,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                 autofocus: true,
                 style: AppTheme.uiMoney(15),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [CurrencyInputFormatter()],
                 decoration: const InputDecoration(hintText: '0,00', prefixText: 'R\$  '),
               ),
               const SizedBox(height: 20),

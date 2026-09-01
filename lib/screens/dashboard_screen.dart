@@ -14,6 +14,7 @@ import '../widgets/budget_dialog.dart';
 import '../widgets/category_chart.dart';
 import '../widgets/transaction_dialog.dart';
 
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -26,6 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   FirestoreService? _fs;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  int _selectedDay = DateTime.now().day;
   String _section = 'overview';
   Budget _budget = const Budget(month: '', limits: {});
   bool _loading = true;
@@ -60,21 +62,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _saveOpeningBalance(double value) async {
+    await _fs!.saveOpeningBalance(_month, value, FirebaseAuth.instance.currentUser!.uid);
+  }
+
   Future<void> _materialize() async {
     final user = FirebaseAuth.instance.currentUser!;
     await _fs!.ensureRecurringForMonth(_month, user.uid, user.displayName ?? 'Alguém');
   }
 
   Future<void> _shiftMonth(int delta) async {
-    setState(() => _month = DateTime(_month.year, _month.month + delta));
+    final next = DateTime(_month.year, _month.month + delta);
+    final now = DateTime.now();
+    final isCurrent = now.year == next.year && now.month == next.month;
+    final lastDay = DateTime(next.year, next.month + 1, 0).day;
+
+    setState(() {
+      _month = next;
+    });
     await _materialize();
   }
 
-  Future<void> _newTransaction() async {
-    final transaction = await showTransactionDialog(context, _month);
+  void _onSelectDay(int day) => setState(() => _selectedDay = day);
+
+  Future<void> _newTransaction({required bool isIncome}) async {
+    final date = DateTime(_month.year, _month.month, _selectedDay);
+    final transaction = await showTransactionDialog(context, date, isIncome: isIncome);
     if (transaction != null) await _fs!.addTransaction(transaction);
   }
-
   Future<void> _onSection(String id) async {
     if (id == 'budget') {
       final limits = await showBudgetDialog(context, _budget.limits);
@@ -151,8 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _content(List<AppTransaction> transactions, ConnectionState state) {
     final income = transactions.where((t) => t.isIncome).fold<double>(0, (s, t) => s + t.amount);
     final expense = transactions.where((t) => !t.isIncome).fold<double>(0, (s, t) => s + t.amount);
-    final balance = income - expense;
-    final savingRate = income > 0 ? (balance / income * 100) : 0.0;
+    final balance = _budget.openingBalance + income - expense;
 
     final spentByCategory = <String, double>{};
     for (final t in transactions.where((t) => !t.isIncome)) {
@@ -173,28 +187,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           AppHeader(
             month: _month,
+            selectedDay: _selectedDay,
+            openingBalance: _budget.openingBalance,
             onShiftMonth: _shiftMonth,
-            onNewTransaction: _newTransaction,
+            onSelectDay: _onSelectDay,
+            onSaveOpeningBalance: _saveOpeningBalance,
+            onNewExpense: () => _newTransaction(isIncome: false),
+            onNewIncome: () => _newTransaction(isIncome: true),
             onSignOut: _auth.signOut,
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _metric('Receitas', money(income), AppColors.income, false, Icons.call_received)),
+              Expanded(child: _metric('Receitas', money(income), AppColors.income, false, Icons.arrow_downward)),
               const SizedBox(width: 14),
-              Expanded(child: _metric('Despesas', money(expense), AppColors.expense, false, Icons.arrow_outward)),
+              Expanded(child: _metric('Despesas', money(expense), AppColors.expense, false, Icons.arrow_upward)),
               const SizedBox(width: 14),
               Expanded(child: _metric('Saldo do mês', money(balance), AppColors.accent, true, Icons.account_balance_wallet_outlined)),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _metric(
-                  'Taxa de economia',
-                  income > 0 ? '${savingRate.toStringAsFixed(0)}%' : '--',
-                  savingRate >= 0 ? AppColors.income : AppColors.expense,
-                  false,
-                  Icons.savings_outlined,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -208,8 +217,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   topCategory == null ? '--' : Categories.byId(topCategory.key).name,
                 ),
               ),
-              const SizedBox(width: 14),
-              Expanded(child: _miniStat('Lançamentos no mês', '${transactions.length}')),
             ],
           ),
           const SizedBox(height: 14),
@@ -242,9 +249,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+
   int _daysElapsed() {
     final now = DateTime.now();
     if (now.year == _month.year && now.month == _month.month) return now.day;
+    int _selectedDay = DateTime.now().day;
     return DateTime(_month.year, _month.month + 1, 0).day;
   }
 

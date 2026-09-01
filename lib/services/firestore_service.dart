@@ -37,7 +37,18 @@ class FirestoreService {
       _budgets.doc(monthKey(month)).snapshots().map(Budget.fromDoc);
 
   Future<void> saveBudget(DateTime month, Map<String, double> limits, String uid) =>
-      _budgets.doc(monthKey(month)).set(Budget(month: monthKey(month), limits: limits).toMap(uid));
+      _budgets.doc(monthKey(month)).set({
+        'limits': limits,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': uid,
+      }, SetOptions(merge: true));
+
+  Future<void> saveOpeningBalance(DateTime month, double value, String uid) =>
+      _budgets.doc(monthKey(month)).set({
+        'openingBalance': value,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': uid,
+      }, SetOptions(merge: true));
 
   Stream<List<RecurringRule>> recurringRules() => _recurring
       .orderBy('dayOfMonth')
