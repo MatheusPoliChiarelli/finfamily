@@ -17,6 +17,9 @@ import '../widgets/transaction_list.dart';
 import '../models/recurring_rule.dart';
 import '../models/fixed_bill.dart';
 import '../widgets/fixed_bill_dialog.dart';
+import '../data/banks.dart';
+import '../widgets/screen_glow.dart';
+import 'cars_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -31,6 +34,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   FirestoreService? _fs;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   int _selectedDay = DateTime.now().day;
+  String _bankId = Banks.geral.id;
   String _section = 'overview';
   Budget _budget = const Budget(month: '', limits: {});
   bool _loading = true;
@@ -40,6 +44,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _init();
+  }
+
+  void _onSelectBank(String id) => setState(() => _bankId = id);
+
+  Future<void> _newTransaction({required bool isIncome}) async {
+    final date = DateTime(_month.year, _month.month, _selectedDay);
+    final transaction = await showTransactionDialog(
+      context,
+      date,
+      isIncome: isIncome,
+      bankId: _bankId,
+    );
+    if (transaction != null) await _fs!.addTransaction(transaction);
+  }
+
+  List<AppTransaction> _filterByBank(List<AppTransaction> all) {
+    if (_bankId == Banks.geral.id) return all;
+    return all.where((t) => t.bankId == _bankId).toList();
   }
 
   Future<void> _init() async {
@@ -53,7 +75,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return;
       }
       _fs = FirestoreService(householdId);
-      await _materialize();
       if (mounted) setState(() => _loading = false);
     } catch (e) {
       if (mounted) {
@@ -70,12 +91,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (bill != null) await _fs!.addFixedBill(bill);
   }
 
-  Future<void> _materialize() async {
-    final user = FirebaseAuth.instance.currentUser!;
-    await _fs!.ensureRecurringForMonth(_month, user.uid, user.displayName ?? 'Alguém');
-  }
 
-  Future<void> _shiftMonth(int delta) async {
+  void _shiftMonth(int delta) {
     final next = DateTime(_month.year, _month.month + delta);
     final now = DateTime.now();
     final isCurrent = now.year == next.year && now.month == next.month;
@@ -85,7 +102,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _month = next;
       _selectedDay = isCurrent ? now.day : _selectedDay.clamp(1, lastDay);
     });
-    await _materialize();
   }
 
   void _onSelectDay(int day) => setState(() => _selectedDay = day);
@@ -96,11 +112,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _saveClosingBalance(double value) => _fs!.saveClosingBalance(_month, value, _uid);
 
-  Future<void> _newTransaction({required bool isIncome}) async {
-    final date = DateTime(_month.year, _month.month, _selectedDay);
-    final transaction = await showTransactionDialog(context, date, isIncome: isIncome);
-    if (transaction != null) await _fs!.addTransaction(transaction);
-  }
 
   Future<void> _onSection(String id) async {
     if (id == 'budget') {
@@ -153,23 +164,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             AppSidebar(selected: _section, onSelect: _onSection),
             Expanded(
-              child: StreamBuilder<Budget>(
-                stream: _fs!.budgetOfMonth(_month),
-                builder: (context, budgetSnap) {
-                  _budget = budgetSnap.data ?? Budget(month: monthKey(_month), limits: const {});
-                  return StreamBuilder<List<AppTransaction>>(
-                    stream: _fs!.transactionsOfMonth(_month),
-                    builder: (context, txSnap) {
-                      final transactions = txSnap.data ?? const <AppTransaction>[];
-                      final loading = txSnap.connectionState == ConnectionState.waiting;
-                      return switch (_section) {
-                        'summary' => _summaryView(transactions, loading),
-                        'fixed' => _fixedView(),
-                        _ => _overview(transactions, loading),
-                      };
-                    },
-                  );
-                },
+              child: ScreenGlow(
+                color: Banks.byId(_bankId).color,
+                active: _bankId != Banks.geral.id,
+                child: StreamBuilder<Budget>(
+                  stream: _fs!.budgetOfMonth(_month),
+                  builder: (context, budgetSnap) {
+                    _budget = budgetSnap.data ?? Budget(month: monthKey(_month), limits: const {});
+                    return StreamBuilder<List<AppTransaction>>(
+                      stream: _fs!.transactionsOfMonth(_month),
+                      builder: (context, txSnap) {
+                        final transactions = _filterByBank(txSnap.data ?? const <AppTransaction>[]);
+                        final loading = txSnap.connectionState == ConnectionState.waiting;
+                        return switch (_section) {
+                          'summary' => _summaryView(transactions, loading),
+                          'fixed' => _fixedView(),
+                          'cars' => CarsScreen(fs: _fs!),
+                          _ => _overview(transactions, loading),
+                        };
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -197,6 +213,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _ => 'Visão geral',
       },
       showDayStrip: _section == 'overview',
+      selectedBankId: _bankId,
+      onSelectBank: _onSelectBank,
     );
   }
   Widget _fixedView() {
@@ -576,10 +594,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: [
-              Icon(icon, size: 20, color: AppColors.accent),
+            children: [ 
+              Icon(icon, size: 18, color: AppColors.accent),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.ui(18, color: AppColors.accent)),
+              Text(label, style: AppTheme.ui(16, color: AppColors.accent)),
             ],
           ),
           const SizedBox(height: 10),

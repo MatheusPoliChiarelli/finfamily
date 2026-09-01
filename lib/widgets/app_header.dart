@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import 'balance_field.dart';
+import 'bank_selector.dart';
 
 class AppHeader extends StatelessWidget {
   const AppHeader({
@@ -21,6 +22,8 @@ class AppHeader extends StatelessWidget {
     required this.onSignOut,
     this.title = 'Visão geral',
     this.showDayStrip = true,
+    required this.selectedBankId,
+    required this.onSelectBank,
   });
 
   final DateTime month;
@@ -36,6 +39,8 @@ class AppHeader extends StatelessWidget {
   final VoidCallback onSignOut;
   final String title;
   final bool showDayStrip;
+  final String selectedBankId;
+  final ValueChanged<String> onSelectBank;
 
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
@@ -64,7 +69,14 @@ class AppHeader extends StatelessWidget {
             Text(title, style: AppTheme.display(34)),
             const SizedBox(width: 20),
             _monthSelector(),
-            const Spacer(),
+            const SizedBox(width: 20),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: BankSelector(selectedId: selectedBankId, onSelect: onSelectBank),
+              ),
+            ),
+            const SizedBox(width: 20),
             _actionButton('Saída', Icons.arrow_upward, AppColors.expense, onNewExpense),
             const SizedBox(width: 10),
             _actionButton('Entrada', Icons.arrow_downward, AppColors.income, onNewIncome),

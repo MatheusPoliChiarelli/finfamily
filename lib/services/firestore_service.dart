@@ -2,10 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/app_transaction.dart';
 import '../models/budget.dart';
-import '../models/recurring_rule.dart';
+import '../models/fixed_bill.dart';
 import '../utils/format.dart';
-import '../models/fixed_bill.dart';
-import '../models/fixed_bill.dart';
+import '../models/car.dart';
 
 class FirestoreService {
   FirestoreService(this.householdId);
@@ -17,18 +16,8 @@ class FirestoreService {
       _db.collection('households').doc(householdId);
 
   CollectionReference<Map<String, dynamic>> get _transactions => _house.collection('transactions');
-  CollectionReference<Map<String, dynamic>> get _recurring => _house.collection('recurring');
   CollectionReference<Map<String, dynamic>> get _budgets => _house.collection('budgets');
-    CollectionReference<Map<String, dynamic>> get _fixedBills => _house.collection('fixedBills');
-
-  Stream<List<FixedBill>> fixedBills() => _fixedBills
-      .orderBy('amount', descending: true)
-      .snapshots()
-      .map((snap) => snap.docs.map(FixedBill.fromDoc).toList());
-
-  Future<void> addFixedBill(FixedBill bill) => _fixedBills.add(bill.toMap());
-
-  Future<void> deleteFixedBill(String id) => _fixedBills.doc(id).delete();
+  CollectionReference<Map<String, dynamic>> get _fixedBills => _house.collection('fixedBills');
 
   Stream<List<AppTransaction>> transactionsOfMonth(DateTime month) {
     final start = DateTime(month.year, month.month, 1);
@@ -69,54 +58,49 @@ class FirestoreService {
         'updatedBy': uid,
       }, SetOptions(merge: true));
 
-
-  Stream<List<RecurringRule>> recurringRules() => _recurring
-      .orderBy('dayOfMonth')
+  Stream<List<FixedBill>> fixedBills() => _fixedBills
+      .orderBy('amount', descending: true)
       .snapshots()
-      .map((snap) => snap.docs.map(RecurringRule.fromDoc).toList());
+      .map((snap) => snap.docs.map(FixedBill.fromDoc).toList());
 
-  Future<void> addRecurring(RecurringRule rule) => _recurring.add(rule.toMap());
+  Future<void> addFixedBill(FixedBill bill) => _fixedBills.add(bill.toMap());
 
-  Future<void> deleteRecurring(String id) => _recurring.doc(id).delete();
+  Future<void> deleteFixedBill(String id) => _fixedBills.doc(id).delete();
 
-  Future<void> ensureRecurringForMonth(DateTime month, String uid, String userName) async {
-    final key = monthKey(month);
-    final metaRef = _house.collection('meta').doc('recurringRuns');
 
-    final meta = await metaRef.get();
-    final processed = (meta.data()?['processed'] as Map<String, dynamic>?) ?? {};
-    if (processed[key] == true) return;
+  CollectionReference<Map<String, dynamic>> get _cars => _house.collection('cars');
 
-    final rules = await _recurring.where('active', isEqualTo: true).get();
-    final batch = _db.batch();
-    final lastDay = DateTime(month.year, month.month + 1, 0).day;
+  Stream<List<Car>> cars() => _cars
+      .orderBy('purchaseDate', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs.map(Car.fromDoc).toList());
 
-    for (final doc in rules.docs) {
-      final rule = RecurringRule.fromDoc(doc);
-      if (rule.startMonth.compareTo(key) > 0) continue;
-      if (rule.endMonth != null && rule.endMonth!.compareTo(key) < 0) continue;
+  Future<void> addCar(Car car) => _cars.add(car.toMap());
 
-      final day = rule.dayOfMonth.clamp(1, lastDay);
-      final transaction = AppTransaction(
-        id: '',
-        amount: rule.amount,
-        isIncome: rule.isIncome,
-        date: DateTime(month.year, month.month, day),
-        description: rule.description,
-        categoryId: rule.categoryId,
-        categoryName: rule.categoryName,
-        categoryColor: rule.categoryColor,
-        createdBy: uid,
-        createdByName: userName,
-        recurringId: rule.id,
-      );
-      batch.set(_transactions.doc(), transaction.toMap());
-    }
+  Future<void> deleteCar(String id) => _cars.doc(id).delete();
 
-    batch.set(metaRef, {
-      'processed': {key: true}
-    }, SetOptions(merge: true));
+  Future<void> updateCosts(String carId, List<CarCost> costs) =>
+      _cars.doc(carId).update({'costs': costs.map((c) => c.toMap()).toList()});
 
-    await batch.commit();
-  }
+  Future<void> sellCar(String carId, double price, DateTime date) => _cars.doc(carId).update({
+        'salePrice': price,
+        'saleDate': Timestamp.fromDate(date),
+      });
+
+  Future<void> reopenCar(String carId) => _cars.doc(carId).update({
+        'salePrice': null,
+        'saleDate': null,
+      });
+
+
+
+
+
+
+
+
+
+
+
 }
+

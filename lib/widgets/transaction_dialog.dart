@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/banks.dart';
 import '../data/categories.dart';
 import '../models/app_transaction.dart';
 import '../theme/app_theme.dart';
@@ -12,18 +13,24 @@ Future<AppTransaction?> showTransactionDialog(
   BuildContext context,
   DateTime date, {
   required bool isIncome,
+  required String bankId,
 }) {
   return showDialog<AppTransaction>(
     context: context,
-    builder: (_) => _TransactionDialog(date: date, isIncome: isIncome),
+    builder: (_) => _TransactionDialog(date: date, isIncome: isIncome, bankId: bankId),
   );
 }
 
 class _TransactionDialog extends StatefulWidget {
-  const _TransactionDialog({required this.date, required this.isIncome});
+  const _TransactionDialog({
+    required this.date,
+    required this.isIncome,
+    required this.bankId,
+  });
 
   final DateTime date;
   final bool isIncome;
+  final String bankId;
 
   @override
   State<_TransactionDialog> createState() => _TransactionDialogState();
@@ -34,6 +41,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   final _description = TextEditingController();
 
   late Category _category;
+  late String _bankId;
   String? _error;
 
   List<Category> get _options => widget.isIncome ? Categories.incomes : Categories.expenses;
@@ -47,6 +55,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   void initState() {
     super.initState();
     _category = _options.first;
+    _bankId = widget.bankId == Banks.geral.id ? '' : widget.bankId;
   }
 
   @override
@@ -60,6 +69,10 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     final value = parseCurrency(_amount.text);
     if (value <= 0) {
       setState(() => _error = 'Informe um valor válido');
+      return;
+    }
+    if (_bankId.isEmpty) {
+      setState(() => _error = 'Escolha o banco');
       return;
     }
 
@@ -76,6 +89,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         categoryId: _category.id,
         categoryName: _category.name,
         categoryColor: _category.color,
+        bankId: _bankId,
         createdBy: user.uid,
         createdByName: user.displayName ?? 'Alguém',
       ),
@@ -88,7 +102,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 700),
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 720),
         child: CallbackShortcuts(
           bindings: {
             const SingleActivator(LogicalKeyboardKey.enter): _save,
@@ -155,6 +169,43 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                       ),
                       prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                     ),
+                  ),
+                  const SizedBox(height: 22),
+                  Text('Banco', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: Banks.accounts.map((b) {
+                      final selected = _bankId == b.id;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: b == Banks.accounts.last ? 0 : 8),
+                          child: InkWell(
+                            onTap: () => setState(() => _bankId = b.id),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              height: 44,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: selected ? b.color.withValues(alpha: 0.14) : AppColors.surfaceRaised,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: selected ? b.color : AppColors.border,
+                                  width: selected ? 1 : 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                b.name,
+                                style: AppTheme.ui(
+                                  13,
+                                  color: selected ? b.color : AppColors.textSecondary,
+                                  weight: selected ? FontWeight.w500 : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 22),
                   Text('Categoria', style: AppTheme.ui(12, color: AppColors.textMuted)),

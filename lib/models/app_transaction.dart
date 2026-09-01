@@ -9,6 +9,7 @@ class AppTransaction {
   final String categoryId;
   final String categoryName;
   final int categoryColor;
+  final String bankId;
   final String createdBy;
   final String createdByName;
   final String? recurringId;
@@ -23,6 +24,7 @@ class AppTransaction {
     required this.categoryId,
     required this.categoryName,
     required this.categoryColor,
+    required this.bankId,
     required this.createdBy,
     required this.createdByName,
     this.recurringId,
@@ -44,6 +46,7 @@ class AppTransaction {
       categoryId: d['categoryId'] as String? ?? 'outros',
       categoryName: d['categoryName'] as String? ?? 'Outros',
       categoryColor: d['categoryColor'] as int? ?? 0xFF888780,
+      bankId: d['bankId'] as String? ?? '',
       createdBy: d['createdBy'] as String? ?? '',
       createdByName: d['createdByName'] as String? ?? '',
       recurringId: d['recurringId'] as String?,
@@ -59,6 +62,7 @@ class AppTransaction {
         'categoryId': categoryId,
         'categoryName': categoryName,
         'categoryColor': categoryColor,
+        'bankId': bankId,
         'createdBy': createdBy,
         'createdByName': createdByName,
         'recurringId': recurringId,

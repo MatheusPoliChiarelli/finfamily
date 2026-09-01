@@ -58,6 +58,7 @@ class AppSidebar extends StatelessWidget {
           _item('budget', Icons.pie_chart_outline, 'Orçamento'),
           _item('recurring', Icons.repeat, 'Recorrentes'),
           _item('fixed', Icons.receipt_long_outlined, 'Contas fixas'),
+                    _item('cars', Icons.directions_car_outlined, 'RobMotors'),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.all(24),
