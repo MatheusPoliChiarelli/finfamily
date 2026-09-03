@@ -5,12 +5,14 @@ class CarCost {
   final String description;
   final double amount;
   final DateTime date;
+  final String typeId;
 
   const CarCost({
     required this.id,
     required this.description,
     required this.amount,
     required this.date,
+    this.typeId = 'outro',
   });
 
   factory CarCost.fromMap(Map<String, dynamic> m) => CarCost(
@@ -18,6 +20,7 @@ class CarCost {
         description: m['description'] as String? ?? '',
         amount: (m['amount'] as num?)?.toDouble() ?? 0,
         date: (m['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        typeId: m['typeId'] as String? ?? 'outro',
       );
 
   Map<String, dynamic> toMap() => {
@@ -25,8 +28,10 @@ class CarCost {
         'description': description,
         'amount': amount,
         'date': Timestamp.fromDate(date),
+        'typeId': typeId,
       };
 }
+
 
 class Car {
   final String id;
@@ -95,3 +100,4 @@ class Car {
         'createdAt': FieldValue.serverTimestamp(),
       };
 }
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/banks.dart';
 import '../data/categories.dart';
 import '../models/app_transaction.dart';
 import '../theme/app_theme.dart';
@@ -12,12 +13,14 @@ class TransactionList extends StatelessWidget {
     required this.onDelete,
     this.emptyMessage = 'Nenhum lançamento',
     this.showDate = true,
+    this.showBank = false,
   });
 
   final List<AppTransaction> transactions;
   final ValueChanged<String> onDelete;
   final String emptyMessage;
   final bool showDate;
+  final bool showBank;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +40,8 @@ class TransactionList extends StatelessWidget {
     final meta = showDate
         ? '${t.categoryName} · ${t.createdByName} · ${dayLabel(t.date)}'
         : '${t.categoryName} · ${t.createdByName}';
+
+    final bank = Banks.byId(t.bankId);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -64,6 +69,42 @@ class TransactionList extends StatelessWidget {
                     Flexible(
                       child: Text(t.description, style: AppTheme.ui(13), overflow: TextOverflow.ellipsis),
                     ),
+                    if (showBank && t.bankId.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: bank.color.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(color: bank.color.withValues(alpha: 0.5), width: 0.5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (bank.logo != null) ...[
+                              Container(
+                                width: 13,
+                                height: 13,
+                                clipBehavior: Clip.antiAlias,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(1),
+                                  child: Image.asset(bank.logo!, fit: BoxFit.contain),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                            ],
+                            Text(
+                              bank.name,
+                              style: AppTheme.ui(10, color: bank.color, weight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (t.isRecurring) ...[
                       const SizedBox(width: 6),
                       const Icon(Icons.repeat, size: 13, color: AppColors.accent),

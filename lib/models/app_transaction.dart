@@ -14,6 +14,20 @@ class AppTransaction {
   final String createdByName;
   final String? recurringId;
   final DateTime? createdAt;
+  final String? carId;
+  final String? newCarBrand;
+  final String? carCostType;
+  final String? newCarModel;
+  final String? newCarYear;
+  final bool isCarSale;
+  final String? fashionKind;
+  final String? productId;
+  final int? quantity;
+  final String? fashionBrand;
+  final String? fashionModel;
+  final String? fashionType;
+  final double? fashionSalePrice;
+    final bool isTransfer;
 
   const AppTransaction({
     required this.id,
@@ -29,6 +43,21 @@ class AppTransaction {
     required this.createdByName,
     this.recurringId,
     this.createdAt,
+    this.carId,
+    this.newCarBrand,
+    this.carCostType,
+    this.newCarModel,
+    this.newCarYear,
+    this.isCarSale = false,
+    this.fashionKind,
+    this.productId,
+    this.quantity,
+    this.fashionBrand,
+    this.fashionModel,
+    this.fashionType,
+    this.fashionSalePrice,
+        this.isTransfer = false,
+
   });
 
   bool get isRecurring => recurringId != null;
@@ -51,6 +80,8 @@ class AppTransaction {
       createdByName: d['createdByName'] as String? ?? '',
       recurringId: d['recurringId'] as String?,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
+      carId: d['carId'] as String?,
+      isTransfer: d['isTransfer'] as bool? ?? false,
     );
   }
 
@@ -67,5 +98,7 @@ class AppTransaction {
         'createdByName': createdByName,
         'recurringId': recurringId,
         'createdAt': FieldValue.serverTimestamp(),
+        'carId': carId,
+        'isTransfer': isTransfer,
       };
 }

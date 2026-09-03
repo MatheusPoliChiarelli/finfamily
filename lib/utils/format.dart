@@ -7,6 +7,9 @@ final _monthLabel = DateFormat("MMMM 'de' yyyy", 'pt_BR');
 final _dayLabel = DateFormat('dd MMM', 'pt_BR');
 final _fullDayLabel = DateFormat("d 'de' MMMM", 'pt_BR');
 final _weekday = DateFormat('EEEE', 'pt_BR');
+final _fullDate = DateFormat("d 'de' MMMM 'de' y", 'pt_BR');
+
+String fullDate(DateTime date) => _fullDate.format(date);
 
 String money(double value) => _currency.format(value);
 String plain(double value) => _plain.format(value);

@@ -5,6 +5,7 @@ import '../models/budget.dart';
 import '../models/fixed_bill.dart';
 import '../utils/format.dart';
 import '../models/car.dart';
+import '../models/product.dart';
 
 class FirestoreService {
   FirestoreService(this.householdId);
@@ -44,16 +45,16 @@ class FirestoreService {
         'updatedBy': uid,
       }, SetOptions(merge: true));
 
-  Future<void> saveOpeningBalance(DateTime month, double value, String uid) =>
+  Future<void> saveOpeningBalance(DateTime month, String bankId, double value, String uid) =>
       _budgets.doc(monthKey(month)).set({
-        'openingBalance': value,
+        'openingBalances': {bankId: value},
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': uid,
       }, SetOptions(merge: true));
 
-  Future<void> saveClosingBalance(DateTime month, double value, String uid) =>
+  Future<void> saveClosingBalance(DateTime month, String bankId, double value, String uid) =>
       _budgets.doc(monthKey(month)).set({
-        'closingBalance': value,
+        'closingBalances': {bankId: value},
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': uid,
       }, SetOptions(merge: true));
@@ -92,9 +93,28 @@ class FirestoreService {
         'saleDate': null,
       });
 
+  CollectionReference<Map<String, dynamic>> get _products => _house.collection('products');
+
+  Stream<List<Product>> products() => _products
+      .orderBy('purchaseDate', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs.map(Product.fromDoc).toList());
+
+  Future<void> addProduct(Product product) => _products.add(product.toMap());
+
+  Future<void> deleteProduct(String id) => _products.doc(id).delete();
+
+  Future<void> registerSale(String productId, int currentSold, double currentRevenue, int units, double total) =>
+      _products.doc(productId).update({
+        'sold': currentSold + units,
+        'revenue': currentRevenue + total,
+      });
 
 
+  Stream<List<Product>> productsAll() => products();
 
+  Future<void> reopenProduct(String productId) =>
+      _products.doc(productId).update({'sold': 0, 'revenue': 0});
 
 
 

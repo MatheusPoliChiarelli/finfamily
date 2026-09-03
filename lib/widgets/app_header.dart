@@ -24,6 +24,11 @@ class AppHeader extends StatelessWidget {
     this.showDayStrip = true,
     required this.selectedBankId,
     required this.onSelectBank,
+    this.canAddTransaction = true,
+    this.balancesEditable = true,
+    this.showActions = true,
+        required this.dayBalance,
+    this.showDayBalance = false,
   });
 
   final DateTime month;
@@ -41,6 +46,11 @@ class AppHeader extends StatelessWidget {
   final bool showDayStrip;
   final String selectedBankId;
   final ValueChanged<String> onSelectBank;
+  final bool canAddTransaction;
+  final bool balancesEditable;
+  final bool showActions;
+    final double dayBalance;
+  final bool showDayBalance;
 
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
@@ -77,10 +87,12 @@ class AppHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 20),
-            _actionButton('Saída', Icons.arrow_upward, AppColors.expense, onNewExpense),
-            const SizedBox(width: 10),
-            _actionButton('Entrada', Icons.arrow_downward, AppColors.income, onNewIncome),
-            const SizedBox(width: 16),
+            if (showActions) ...[
+              _actionButton('Saída', Icons.arrow_upward, AppColors.expense, onNewExpense, canAddTransaction),
+              const SizedBox(width: 10),
+              _actionButton('Entrada', Icons.arrow_downward, AppColors.income, onNewIncome, canAddTransaction),
+              const SizedBox(width: 16),
+            ],
             _avatarMenu(name, email),
           ],
         ),
@@ -90,19 +102,28 @@ class AppHeader extends StatelessWidget {
           child: Row(
             children: [
               BalanceField(
-                key: ValueKey('open-${monthKey(month)}-$openingBalance'),
+                key: ValueKey('open-${monthKey(month)}-$selectedBankId-$openingBalance'),
                 label: 'Saldo inicial',
                 icon: Icons.savings_outlined,
                 value: openingBalance,
-                onSave: onSaveOpeningBalance,
+                onSave: balancesEditable ? onSaveOpeningBalance : null,
               ),
               const SizedBox(width: 12),
+              if (showDayBalance) ...[
+                BalanceField(
+                  label: 'Saldo do dia',
+                  icon: Icons.today_outlined,
+                  value: dayBalance,
+                  valueColor: dayBalance >= 0 ? AppColors.income : AppColors.expense,
+                ),
+                const SizedBox(width: 12),
+              ],
               BalanceField(
-                key: ValueKey('close-${monthKey(month)}-$closingBalance'),
+                key: ValueKey('close-${monthKey(month)}-$selectedBankId-$closingBalance'),
                 label: 'Saldo final',
                 icon: Icons.account_balance_outlined,
                 value: closingBalance,
-                onSave: onSaveClosingBalance,
+                onSave: balancesEditable ? onSaveClosingBalance : null,
               ),
               const SizedBox(width: 12),
               BalanceField(
@@ -223,25 +244,31 @@ class AppHeader extends StatelessWidget {
     );
   }
 
-  Widget _actionButton(String label, IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: color.withValues(alpha: 0.55), width: 0.5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 9),
-            Text(label, style: AppTheme.ui(13, color: color, weight: FontWeight.w500)),
-          ],
+  Widget _actionButton(String label, IconData icon, Color color, VoidCallback onTap, bool enabled) {
+    return Tooltip(
+      message: enabled ? '' : 'Escolha um banco para lançar',
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(22),
+        child: Opacity(
+          opacity: enabled ? 1 : 0.4,
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: color.withValues(alpha: 0.55), width: 0.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 9),
+                Text(label, style: AppTheme.ui(13, color: color, weight: FontWeight.w500)),
+              ],
+            ),
+          ),
         ),
       ),
     );

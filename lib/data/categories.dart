@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'banks.dart';
 
 class Category {
   final String id;
@@ -18,6 +19,7 @@ class Category {
 
 class Categories {
   static const expenses = <Category>[
+
     Category(id: 'mercado', name: 'Mercado', icon: Icons.shopping_cart_outlined, color: 0xFF5DCAA5),
     Category(id: 'combustivel', name: 'Combustível', icon: Icons.local_gas_station_outlined, color: 0xFFEF9F27),
     Category(id: 'energia', name: 'Energia', icon: Icons.bolt_outlined, color: 0xFFFAC775),
@@ -34,14 +36,21 @@ class Categories {
     Category(id: 'uber', name: 'Uber', icon: Icons.local_taxi_outlined, color: 0xFFB4B2A9),
     Category(id: 'academia', name: 'Academia', icon: Icons.fitness_center_outlined, color: 0xFF97C459),
     Category(id: 'meta_ads', name: 'Meta Ads', icon: Icons.campaign_outlined, color: 0xFF534AB7),
+    Category(id: 'robmotors', name: 'RobMotors', icon: Icons.directions_car_outlined, color: 0xFF378ADD),
+    Category(id: 'vise_versa', name: 'Vise Versa', icon: Icons.checkroom_outlined, color: 0xFFED93B1),
+    Category(id: 'joao', name: 'João', icon: Icons.person_outline, color: 0xFF85B7EB),
+    Category(id: 'matheus', name: 'Matheus', icon: Icons.person_outline, color: 0xFF7F77DD),
+    Category(id: 'motoboy', name: 'Motoboy', icon: Icons.two_wheeler_outlined, color: 0xFFEF9F27),
     Category(id: 'outros', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780),
   ];
 
   static const incomes = <Category>[
-    Category(id: 'salario', name: 'Salário', icon: Icons.payments_outlined, color: 0xFF5FD4A0, isIncome: true),
-    Category(id: 'freelance', name: 'Freelance', icon: Icons.work_outline, color: 0xFF5DCAA5, isIncome: true),
-    Category(id: 'investimentos', name: 'Investimentos', icon: Icons.trending_up, color: 0xFF97C459, isIncome: true),
-    Category(id: 'outras_receitas', name: 'Outras receitas', icon: Icons.add_circle_outline, color: 0xFF888780, isIncome: true),
+    Category(id: 'robmotors', name: 'RobMotors', icon: Icons.directions_car_outlined, color: 0xFF378ADD, isIncome: true),
+    Category(id: 'vise_versa', name: 'Vise Versa', icon: Icons.checkroom_outlined, color: 0xFFED93B1, isIncome: true),
+        Category(id: 'joao', name: 'João', icon: Icons.person_outline, color: 0xFF85B7EB, isIncome: true),
+    Category(id: 'matheus', name: 'Matheus', icon: Icons.person_outline, color: 0xFF7F77DD, isIncome: true),
+    Category(id: 'motoboy', name: 'Motoboy', icon: Icons.two_wheeler_outlined, color: 0xFFEF9F27, isIncome: true),
+    Category(id: 'outros', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780),
   ];
 
   static List<Category> get all => [...expenses, ...incomes];
@@ -50,4 +59,13 @@ class Categories {
         (c) => c.id == id,
         orElse: () => expenses.last,
       );
+
+
+
+        static const transferPrefix = 'transfer_';
+
+  static bool isTransfer(String categoryId) => categoryId.startsWith(transferPrefix);
+
+  static List<Category> transfersFor(String bankId, bool isIncome) { ... }
 }
+

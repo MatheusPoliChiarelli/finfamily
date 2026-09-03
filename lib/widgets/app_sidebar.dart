@@ -59,6 +59,7 @@ class AppSidebar extends StatelessWidget {
           _item('recurring', Icons.repeat, 'Recorrentes'),
           _item('fixed', Icons.receipt_long_outlined, 'Contas fixas'),
                     _item('cars', Icons.directions_car_outlined, 'RobMotors'),
+          _item('fashion', Icons.checkroom_outlined, 'Vise Versa'),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.all(24),
@@ -104,3 +105,34 @@ class AppSidebar extends StatelessWidget {
     );
   }
 }
+
+
+  Widget _actionButton(String label, IconData icon, Color color, VoidCallback onTap, bool enabled) {
+    return Tooltip(
+      message: enabled ? '' : 'Escolha um banco para lançar',
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(22),
+        child: Opacity(
+          opacity: enabled ? 1 : 0.4,
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: color.withValues(alpha: 0.55), width: 0.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 9),
+                Text(label, style: AppTheme.ui(13, color: color, weight: FontWeight.w500)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }

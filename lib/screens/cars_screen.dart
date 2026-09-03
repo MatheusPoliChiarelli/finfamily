@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/car_costs.dart';
 import '../models/car.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_theme.dart';
@@ -24,7 +25,7 @@ class _CarsScreenState extends State<CarsScreen> {
     if (car != null) await widget.fs.addCar(car);
   }
 
-  Future<void> _addCost(Car car) async {
+    Future<void> _addCost(Car car) async {
     final cost = await showCostDialog(context);
     if (cost != null) await widget.fs.updateCosts(car.id, [...car.costs, cost]);
   }
@@ -48,7 +49,8 @@ class _CarsScreenState extends State<CarsScreen> {
         final sold = all.where((c) => c.isSold).toList()
           ..sort((a, b) => b.saleDate!.compareTo(a.saleDate!));
 
-        final capital = active.fold<double>(0, (s, c) => s + c.totalInvested);
+        final capital = active.fold<double>(0, (s, c) => s + c.purchasePrice);
+        final activeCosts = active.fold<double>(0, (s, c) => s + c.totalCosts);
         final realized = sold.fold<double>(0, (s, c) => s + c.profit);
         final avgMargin = sold.isEmpty
             ? 0.0
@@ -100,7 +102,7 @@ class _CarsScreenState extends State<CarsScreen> {
                 children: [
                   Expanded(child: _metric('Capital em estoque', money(capital), AppColors.accent, Icons.inventory_2_outlined)),
                   const SizedBox(width: 14),
-                  Expanded(child: _metric('Carros ativos', '${active.length}', AppColors.textPrimary, Icons.directions_car_outlined)),
+                  Expanded(child: _metric('Custos acumulados', money(activeCosts), AppColors.expense, Icons.build_outlined)),
                   const SizedBox(width: 14),
                   Expanded(
                     child: _metric(
@@ -125,16 +127,13 @@ class _CarsScreenState extends State<CarsScreen> {
               const SizedBox(height: 14),
               Row(
                 children: [
+                  Expanded(child: _miniStat('Total desembolsado nos ativos', money(capital + activeCosts))),
+                  const SizedBox(width: 14),
+                  Expanded(child: _miniStat('Carros ativos', '${active.length}')),
+                  const SizedBox(width: 14),
                   Expanded(child: _miniStat('Carros vendidos', '${sold.length}')),
                   const SizedBox(width: 14),
                   Expanded(child: _miniStat('Tempo médio até a venda', sold.isEmpty ? '--' : '$avgDays dias')),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _miniStat(
-                      'Custos em carros ativos',
-                      money(active.fold<double>(0, (s, c) => s + c.totalCosts)),
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 22),
@@ -175,7 +174,11 @@ class _CarsScreenState extends State<CarsScreen> {
               else
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final columns = constraints.maxWidth > 1150 ? 2 : 1;
+                    final columns = constraints.maxWidth > 1250
+                        ? 3
+                        : constraints.maxWidth > 850
+                            ? 2
+                            : 1;
                     const gap = 14.0;
                     final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
                     return Wrap(
@@ -264,51 +267,60 @@ class _CarsScreenState extends State<CarsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(car.name, style: AppTheme.ui(16, weight: FontWeight.w500)),
-                    const SizedBox(height: 3),
                     Text(
-                      [
-                        if (car.plate.isNotEmpty) car.plate,
-                        if (car.year.isNotEmpty) car.year,
-                        'comprado em ${dayLabel(car.purchaseDate)}',
-                      ].join(' · '),
+                      car.year.isEmpty ? car.name : '${car.name} ${car.year}',
+                      style: AppTheme.ui(16, weight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Comprado em ${fullDate(car.purchaseDate)}',
                       style: AppTheme.ui(11, color: AppColors.textMuted),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.5), width: 0.5),
-                ),
-                child: Text(
-                  car.isSold ? 'Vendido' : '${car.daysHeld} dias em estoque',
-                  style: AppTheme.ui(11, color: statusColor, weight: FontWeight.w500),
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: statusColor.withValues(alpha: 0.5), width: 0.5),
+            ),
+            child: Text(
+              car.isSold ? 'Vendido em ${fullDate(car.saleDate!)}' : '${car.daysHeld} dias em estoque',
+              style: AppTheme.ui(11, color: statusColor, weight: FontWeight.w500),
+            ),
+          ),
+          const SizedBox(height: 18),
           Row(
             children: [
               Expanded(child: _stat('Compra', money(car.purchasePrice), null)),
               Expanded(child: _stat('Custos', money(car.totalCosts), null)),
-              Expanded(child: _stat('Investido', money(car.totalInvested), AppColors.accent)),
-              if (car.isSold) ...[
-                Expanded(child: _stat('Venda', money(car.salePrice!), null)),
-                Expanded(
-                  child: _stat(
-                    'Lucro',
-                    '${money(car.profit)}  ${car.margin >= 0 ? '+' : ''}${car.margin.toStringAsFixed(1)}%',
-                    statusColor,
-                  ),
-                ),
-              ],
             ],
           ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _stat('Investido', money(car.totalInvested), AppColors.accent)),
+              Expanded(
+                child: car.isSold
+                    ? _stat('Venda', money(car.salePrice!), null)
+                    : const SizedBox(),
+              ),
+            ],
+          ),
+          if (car.isSold) ...[
+            const SizedBox(height: 14),
+            _stat(
+              'Lucro',
+              '${money(car.profit)}   ${car.margin >= 0 ? '+' : ''}${car.margin.toStringAsFixed(1)}%',
+              statusColor,
+            ),
+          ],
           const SizedBox(height: 18),
           Row(
             children: [
@@ -364,32 +376,48 @@ class _CarsScreenState extends State<CarsScreen> {
                 ),
               )
             else
-              ...car.costs.map((cost) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.build_outlined, size: 14, color: AppColors.textMuted),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(cost.description, style: AppTheme.ui(13)),
+              ...car.costs.map((cost) {
+                final type = CarCostTypes.byId(cost.typeId);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: AppColors.accentSoft,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        Text(dayLabel(cost.date), style: AppTheme.ui(11, color: AppColors.textMuted)),
-                        const SizedBox(width: 14),
-                        Text(money(cost.amount), style: AppTheme.uiMoney(13)),
-                        if (!car.isSold) ...[
-                          const SizedBox(width: 6),
-                          InkWell(
-                            onTap: () => _removeCost(car, cost),
-                            customBorder: const CircleBorder(),
-                            child: const Padding(
-                              padding: EdgeInsets.all(5),
-                              child: Icon(Icons.close, size: 13, color: AppColors.textMuted),
-                            ),
+                        child: Icon(type.icon, size: 14, color: AppColors.accent),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(cost.description, style: AppTheme.ui(13)),
+                            const SizedBox(height: 2),
+                            Text(dayLabel(cost.date), style: AppTheme.ui(10, color: AppColors.textMuted)),
+                          ],
+                        ),
+                      ),
+                      Text(money(cost.amount), style: AppTheme.uiMoney(13)),
+                      if (!car.isSold) ...[
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () => _removeCost(car, cost),
+                          customBorder: const CircleBorder(),
+                          child: const Padding(
+                            padding: EdgeInsets.all(5),
+                            child: Icon(Icons.close, size: 13, color: AppColors.textMuted),
                           ),
-                        ],
+                        ),
                       ],
-                    ),
-                  )),
+                    ],
+                  ),
+                );
+              }),
           ],
         ],
       ),
@@ -448,9 +476,9 @@ class _CarsScreenState extends State<CarsScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: AppColors.accent),
+              Icon(icon, size: 18, color: AppColors.accent),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.ui(14, color: AppColors.accent)),
+              Text(label, style: AppTheme.ui(16, color: AppColors.accent)),
             ],
           ),
           const SizedBox(height: 10),

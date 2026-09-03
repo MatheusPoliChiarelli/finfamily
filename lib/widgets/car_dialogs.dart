@@ -5,7 +5,7 @@ import '../models/car.dart';
 import '../theme/app_theme.dart';
 import '../utils/currency_input_formatter.dart';
 import '../utils/format.dart';
-
+import '../data/car_costs.dart';
 Future<Car?> showCarDialog(BuildContext context) =>
     showDialog<Car>(context: context, builder: (_) => const _CarDialog());
 
@@ -92,8 +92,8 @@ class _CarDialog extends StatefulWidget {
 }
 
 class _CarDialogState extends State<_CarDialog> {
-  final _name = TextEditingController();
-  final _plate = TextEditingController();
+  final _brand = TextEditingController();
+  final _model = TextEditingController();
   final _year = TextEditingController();
   final _price = TextEditingController();
 
@@ -102,8 +102,8 @@ class _CarDialogState extends State<_CarDialog> {
 
   @override
   void dispose() {
-    _name.dispose();
-    _plate.dispose();
+    _brand.dispose();
+    _model.dispose();
     _year.dispose();
     _price.dispose();
     super.dispose();
@@ -121,8 +121,8 @@ class _CarDialogState extends State<_CarDialog> {
 
   void _save() {
     final price = parseCurrency(_price.text);
-    if (_name.text.trim().isEmpty) {
-      setState(() => _error = 'Informe o modelo do carro');
+    if (_brand.text.trim().isEmpty || _model.text.trim().isEmpty) {
+      setState(() => _error = 'Informe marca e modelo');
       return;
     }
     if (price <= 0) {
@@ -133,8 +133,8 @@ class _CarDialogState extends State<_CarDialog> {
     Navigator.of(context).pop(
       Car(
         id: '',
-        name: _name.text.trim(),
-        plate: _plate.text.trim().toUpperCase(),
+        name: '${_brand.text.trim()} ${_model.text.trim()}',
+        plate: '',
         year: _year.text.trim(),
         purchaseDate: _date,
         purchasePrice: price,
@@ -151,56 +151,43 @@ class _CarDialogState extends State<_CarDialog> {
         const SizedBox(height: 4),
         Text('Entra como ativo no estoque', style: AppTheme.ui(12, color: AppColors.textMuted)),
         const SizedBox(height: 22),
-        _label('Modelo'),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _name,
-          autofocus: true,
-          style: AppTheme.ui(14),
-          decoration: const InputDecoration(hintText: 'Onix 1.0 LT'),
-        ),
-        const SizedBox(height: 18),
+        _label('Dados do carro'),
+        const SizedBox(height: 10),
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _label('Placa'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _plate,
-                    style: AppTheme.ui(14),
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(hintText: 'ABC1D23'),
-                  ),
-                ],
+              child: TextField(
+                controller: _brand,
+                autofocus: true,
+                style: AppTheme.ui(14),
+                decoration: const InputDecoration(hintText: 'Marca'),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _label('Ano'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _year,
-                    style: AppTheme.uiMoney(14),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
-                      LengthLimitingTextInputFormatter(9),
-                    ],
-                    decoration: const InputDecoration(hintText: '2018/2019'),
-                  ),
+              child: TextField(
+                controller: _model,
+                style: AppTheme.ui(14),
+                decoration: const InputDecoration(hintText: 'Modelo'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 110,
+              child: TextField(
+                controller: _year,
+                style: AppTheme.uiMoney(14),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
+                  LengthLimitingTextInputFormatter(9),
                 ],
+                decoration: const InputDecoration(hintText: 'Ano'),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _label('Valor de compra'),
         const SizedBox(height: 8),
         TextField(
@@ -210,7 +197,7 @@ class _CarDialogState extends State<_CarDialog> {
           inputFormatters: [CurrencyInputFormatter()],
           decoration: _moneyDecoration(),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _label('Data da compra'),
         const SizedBox(height: 8),
         _dateField(context, _date, _pickDate),
@@ -242,18 +229,10 @@ class _CostDialogState extends State<_CostDialog> {
   final _amount = TextEditingController();
 
   DateTime _date = DateTime.now();
+  String _typeId = 'cautelar';
   String? _error;
 
-  static const _suggestions = [
-    'Documentação',
-    'Manutenção',
-    'Funilaria',
-    'Pintura',
-    'Pneus',
-    'Lavagem',
-    'Transporte',
-    'IPVA',
-  ];
+  bool get _isOther => _typeId == 'outro';
 
   @override
   void dispose() {
@@ -274,21 +253,22 @@ class _CostDialogState extends State<_CostDialog> {
 
   void _save() {
     final amount = parseCurrency(_amount.text);
-    if (_description.text.trim().isEmpty) {
-      setState(() => _error = 'Informe a descrição do custo');
-      return;
-    }
     if (amount <= 0) {
       setState(() => _error = 'Informe um valor válido');
+      return;
+    }
+    if (_isOther && _description.text.trim().isEmpty) {
+      setState(() => _error = 'Informe a descrição do custo');
       return;
     }
 
     Navigator.of(context).pop(
       CarCost(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
-        description: _description.text.trim(),
+        description: _isOther ? _description.text.trim() : CarCostTypes.byId(_typeId).name,
         amount: amount,
         date: _date,
+        typeId: _typeId,
       ),
     );
   }
@@ -300,48 +280,48 @@ class _CostDialogState extends State<_CostDialog> {
       children: [
         Text('Novo custo', style: AppTheme.display(24)),
         const SizedBox(height: 22),
-        _label('Descrição'),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _description,
-          autofocus: true,
-          style: AppTheme.ui(14),
-          decoration: const InputDecoration(hintText: 'Troca de embreagem'),
-        ),
+        _label('Tipo do custo'),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children: _suggestions
-              .map((s) => InkWell(
-                    onTap: () => setState(() => _description.text = s),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border, width: 0.5),
-                      ),
-                      child: Text(s, style: AppTheme.ui(11, color: AppColors.textSecondary)),
-                    ),
-                  ))
-              .toList(),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const columns = 3;
+            const gap = 8.0;
+            final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: CarCostTypes.all
+                  .where((t) => t.id != 'compra')
+                  .map((t) => SizedBox(width: width, child: _costChip(t)))
+                  .toList(),
+            );
+          },
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _label('Valor'),
         const SizedBox(height: 8),
         TextField(
           controller: _amount,
+          autofocus: true,
           style: AppTheme.uiMoney(15),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [CurrencyInputFormatter()],
           decoration: _moneyDecoration(),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _label('Data'),
         const SizedBox(height: 8),
         _dateField(context, _date, _pickDate),
+        if (_isOther) ...[
+          const SizedBox(height: 20),
+          _label('Descrição'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _description,
+            style: AppTheme.ui(14),
+            decoration: const InputDecoration(hintText: 'Do que se trata'),
+          ),
+        ],
         if (_error != null) ...[
           const SizedBox(height: 14),
           Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),
@@ -354,6 +334,63 @@ class _CostDialogState extends State<_CostDialog> {
           child: Text('Cancelar', style: AppTheme.ui(13, color: AppColors.textSecondary)),
         ),
       ],
+    );
+  }
+
+  Widget _costChip(CarCostType t) {
+    final selected = _typeId == t.id;
+    return InkWell(
+      onTap: () => setState(() => _typeId = t.id),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentSoft : AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.border,
+            width: selected ? 1 : 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? AppColors.accent : AppColors.textMuted,
+                  width: 1.2,
+                ),
+              ),
+              child: selected
+                  ? Center(
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.accent),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 7),
+            Icon(t.icon, size: 14, color: selected ? AppColors.accent : AppColors.textMuted),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                t.name,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.ui(
+                  12,
+                  color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
