@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'banks.dart';
 
 class Category {
@@ -36,36 +37,60 @@ class Categories {
     Category(id: 'uber', name: 'Uber', icon: Icons.local_taxi_outlined, color: 0xFFB4B2A9),
     Category(id: 'academia', name: 'Academia', icon: Icons.fitness_center_outlined, color: 0xFF97C459),
     Category(id: 'meta_ads', name: 'Meta Ads', icon: Icons.campaign_outlined, color: 0xFF534AB7),
-    Category(id: 'robmotors', name: 'RobMotors', icon: Icons.directions_car_outlined, color: 0xFF378ADD),
-    Category(id: 'vise_versa', name: 'Vise Versa', icon: Icons.checkroom_outlined, color: 0xFFED93B1),
     Category(id: 'joao', name: 'João', icon: Icons.person_outline, color: 0xFF85B7EB),
     Category(id: 'matheus', name: 'Matheus', icon: Icons.person_outline, color: 0xFF7F77DD),
     Category(id: 'motoboy', name: 'Motoboy', icon: Icons.two_wheeler_outlined, color: 0xFFEF9F27),
+    Category(id: 'robmotors', name: 'RobMotors', icon: Icons.directions_car_outlined, color: 0xFF378ADD),
+    Category(id: 'vise_versa', name: 'Vise Versa', icon: Icons.checkroom_outlined, color: 0xFFED93B1),
+    Category(id: 'correios', name: 'Correios', icon: Icons.local_shipping_outlined, color: 0xFF5DCAA5),
+    Category(id: 'investimentos', name: 'Investimentos', icon: Icons.trending_up, color: 0xFF97C459),
     Category(id: 'outros', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780),
+
   ];
 
   static const incomes = <Category>[
     Category(id: 'robmotors', name: 'RobMotors', icon: Icons.directions_car_outlined, color: 0xFF378ADD, isIncome: true),
     Category(id: 'vise_versa', name: 'Vise Versa', icon: Icons.checkroom_outlined, color: 0xFFED93B1, isIncome: true),
-        Category(id: 'joao', name: 'João', icon: Icons.person_outline, color: 0xFF85B7EB, isIncome: true),
+    Category(id: 'joao', name: 'João', icon: Icons.person_outline, color: 0xFF85B7EB, isIncome: true),
     Category(id: 'matheus', name: 'Matheus', icon: Icons.person_outline, color: 0xFF7F77DD, isIncome: true),
     Category(id: 'motoboy', name: 'Motoboy', icon: Icons.two_wheeler_outlined, color: 0xFFEF9F27, isIncome: true),
-    Category(id: 'outros', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780),
+    Category(id: 'correios', name: 'Correios', icon: Icons.local_shipping_outlined, color: 0xFF5DCAA5, isIncome: true),
+    Category(id: 'investimentos', name: 'Investimentos', icon: Icons.trending_up, color: 0xFF97C459, isIncome: true),
+    Category(id: 'outras_receitas', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780, isIncome: true),
   ];
 
   static List<Category> get all => [...expenses, ...incomes];
 
-  static Category byId(String id) => all.firstWhere(
-        (c) => c.id == id,
-        orElse: () => expenses.last,
+  static Category byId(String id) {
+    if (isTransfer(id)) {
+      final bankId = id.substring(transferPrefix.length);
+      final bank = Banks.byId(bankId);
+      return Category(
+        id: id,
+        name: bank.name,
+        icon: Icons.swap_horiz,
+        color: bank.color.toARGB32(),
       );
+    }
+    return all.firstWhere(
+      (c) => c.id == id,
+      orElse: () => expenses.last,
+    );
+  }
 
-
-
-        static const transferPrefix = 'transfer_';
+  static const transferPrefix = 'transfer_';
 
   static bool isTransfer(String categoryId) => categoryId.startsWith(transferPrefix);
 
-  static List<Category> transfersFor(String bankId, bool isIncome) { ... }
+  static List<Category> transfersFor(String bankId, bool isIncome) {
+    return Banks.accounts.where((b) => b.id != bankId).map((b) {
+      return Category(
+        id: '$transferPrefix${b.id}',
+        name: isIncome ? 'Transferência do ${b.name}' : 'Transferência para ${b.name}',
+        icon: isIncome ? Icons.south_west : Icons.north_east,
+        color: b.color.toARGB32(),
+        isIncome: isIncome,
+      );
+    }).toList();
+  }
 }
-

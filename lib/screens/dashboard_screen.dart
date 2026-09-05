@@ -22,6 +22,11 @@ import '../widgets/transaction_list.dart';
 import 'cars_screen.dart';
 import '../models/product.dart';
 import 'vise_versa_screen.dart';
+import 'package:flutter/services.dart';
+import '../widgets/daily_chart.dart';
+import 'dart:async';
+import 'year_screen.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -43,6 +48,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _error;
   List<Car> _activeCars = const [];
   List<Product> _products = const [];
+  bool _showAllTransactions = false;
+  String _dayBuffer = '';
+  Timer? _dayTimer;
 
 
   @override
@@ -51,6 +59,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _init();
   }
 
+  @override
+  void dispose() {
+    _dayTimer?.cancel();
+    super.dispose();
+  }
+  
+
+  void _typeDay(String digit) {
+    if (_section != 'overview') return;
+
+    _dayTimer?.cancel();
+    final lastDay = DateTime(_month.year, _month.month + 1, 0).day;
+
+    if (_dayBuffer.isNotEmpty) {
+      final candidate = int.parse('$_dayBuffer$digit');
+      _dayBuffer = '';
+      if (candidate >= 1 && candidate <= lastDay) {
+        setState(() => _selectedDay = candidate);
+      } else {
+        final single = int.parse(digit);
+        if (single >= 1 && single <= lastDay) setState(() => _selectedDay = single);
+      }
+      return;
+    }
+
+    final single = int.parse(digit);
+    final canBePrefix = single >= 1 && single <= 3;
+
+    if (canBePrefix) {
+      _dayBuffer = digit;
+      _dayTimer = Timer(const Duration(milliseconds: 500), () {
+        _dayBuffer = '';
+        if (mounted) setState(() => _selectedDay = single);
+      });
+      return;
+    }
+
+    if (single >= 1 && single <= lastDay) setState(() => _selectedDay = single);
+  }
   Future<void> _init() async {
     try {
       final householdId = await _auth.loadHouseholdId();
@@ -230,40 +277,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: SafeArea(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppSidebar(selected: _section, onSelect: _onSection),
-            Expanded(
-              child: ScreenGlow(
-                color: Banks.byId(_bankId).color,
-                active: _bankId != Banks.geral.id && _section != 'cars' && _section != 'fashion',
-                child: StreamBuilder<Budget>(
-                  stream: _fs!.budgetOfMonth(_month),
-                  builder: (context, budgetSnap) {
-                    _budget = budgetSnap.data ?? Budget(month: monthKey(_month), limits: const {});
-                    return StreamBuilder<List<AppTransaction>>(
-                      stream: _fs!.transactionsOfMonth(_month),
-                      builder: (context, txSnap) {
-                        final transactions = _filterByBank(txSnap.data ?? const <AppTransaction>[]);
-                        final loading = txSnap.connectionState == ConnectionState.waiting;
-                        return switch (_section) {
-                          'summary' => _summaryView(transactions, loading),
-                          'fixed' => _fixedView(),
-                          'cars' => CarsScreen(fs: _fs!),
-                          'fashion' => ViseVersaScreen(fs: _fs!),
-                          _ => _overview(transactions, loading),
-                        };
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () {
+          if (_section == 'overview' && _bankId != Banks.geral.id) {
+            _newTransaction(isIncome: false);
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () {
+          if (_section == 'overview' && _bankId != Banks.geral.id) {
+            _newTransaction(isIncome: true);
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.keyG): () => _onSelectBank(Banks.geral.id),
+        const SingleActivator(LogicalKeyboardKey.keyS): () => _onSelectBank(Banks.sicoob.id),
+        const SingleActivator(LogicalKeyboardKey.keyI): () => _onSelectBank(Banks.itau.id),
+        const SingleActivator(LogicalKeyboardKey.keyN): () => _onSelectBank(Banks.nubank.id),
+        const SingleActivator(LogicalKeyboardKey.keyV): () => _onSelectBank(Banks.vr.id),
+        const SingleActivator(LogicalKeyboardKey.digit0): () => _typeDay('0'),
+        const SingleActivator(LogicalKeyboardKey.digit1): () => _typeDay('1'),
+        const SingleActivator(LogicalKeyboardKey.digit2): () => _typeDay('2'),
+        const SingleActivator(LogicalKeyboardKey.digit3): () => _typeDay('3'),
+        const SingleActivator(LogicalKeyboardKey.digit4): () => _typeDay('4'),
+        const SingleActivator(LogicalKeyboardKey.digit5): () => _typeDay('5'),
+        const SingleActivator(LogicalKeyboardKey.digit6): () => _typeDay('6'),
+        const SingleActivator(LogicalKeyboardKey.digit7): () => _typeDay('7'),
+        const SingleActivator(LogicalKeyboardKey.digit8): () => _typeDay('8'),
+        const SingleActivator(LogicalKeyboardKey.digit9): () => _typeDay('9'),
+        const SingleActivator(LogicalKeyboardKey.numpad0): () => _typeDay('0'),
+        const SingleActivator(LogicalKeyboardKey.numpad1): () => _typeDay('1'),
+        const SingleActivator(LogicalKeyboardKey.numpad2): () => _typeDay('2'),
+        const SingleActivator(LogicalKeyboardKey.numpad3): () => _typeDay('3'),
+        const SingleActivator(LogicalKeyboardKey.numpad4): () => _typeDay('4'),
+        const SingleActivator(LogicalKeyboardKey.numpad5): () => _typeDay('5'),
+        const SingleActivator(LogicalKeyboardKey.numpad6): () => _typeDay('6'),
+        const SingleActivator(LogicalKeyboardKey.numpad7): () => _typeDay('7'),
+        const SingleActivator(LogicalKeyboardKey.numpad8): () => _typeDay('8'),
+        const SingleActivator(LogicalKeyboardKey.numpad9): () => _typeDay('9'),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          backgroundColor: AppColors.bg,
+          body: SafeArea(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppSidebar(selected: _section, onSelect: _onSection),
+                Expanded(
+                  child: ScreenGlow(
+                    color: Banks.byId(_bankId).color,
+                    active: _bankId != Banks.geral.id && _section != 'cars' && _section != 'fashion',
+                    child: StreamBuilder<Budget>(
+                      stream: _fs!.budgetOfMonth(_month),
+                      builder: (context, budgetSnap) {
+                        _budget = budgetSnap.data ?? Budget(month: monthKey(_month), limits: const {});
+                        return StreamBuilder<List<AppTransaction>>(
+                          stream: _fs!.transactionsOfMonth(_month),
+                          builder: (context, txSnap) {
+                            final transactions = _filterByBank(txSnap.data ?? const <AppTransaction>[]);
+                            final loading = txSnap.connectionState == ConnectionState.waiting;
+                          return switch (_section) {
+                            'summary' => _summaryView(transactions, loading),
+                            'year' => YearScreen(fs: _fs!, bankId: _bankId, header: _header()),
+                            'fixed' => _fixedView(),
+                            'cars' => CarsScreen(fs: _fs!),
+                            'fashion' => ViseVersaScreen(fs: _fs!),
+                            _ => _overview(transactions, loading),
+                          };
+                          },
+                        );
                       },
-                    );
-                  },
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -291,11 +381,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       canAddTransaction: _bankId != Banks.geral.id,
       title: switch (_section) {
         'summary' => 'Resumo do mês',
+        'year' => 'Resumo do ano',
         'fixed' => 'Contas fixas',
         'fashion' => 'Vise Versa',
         _ => 'Visão geral',
       },
       showDayStrip: _section == 'overview',
+      showBalances: _section != 'year',
     );
   }
 
@@ -405,22 +497,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final expense = transactions
         .where((t) => !t.isIncome && !t.isTransfer)
         .fold<double>(0, (s, t) => s + t.amount);
-    final balance = income - expense;
     final movement = transactions.fold<double>(0, (s, t) => s + (t.isIncome ? t.amount : -t.amount));
     final declared = _budget.closingFor(_bankId) - _budget.openingFor(_bankId);
-    final divergence = movement - declared;
+    final divergence = (income - expense) - declared;
     final matches = divergence.abs() < 0.01;
 
     final spentByCategory = <String, double>{};
     for (final t in transactions.where((t) => !t.isIncome && !t.isTransfer)) {
       spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
     }
+
     final daysElapsed = _daysElapsed();
     final dailyAverage = daysElapsed > 0 ? expense / daysElapsed : 0.0;
 
     final topCategory = spentByCategory.entries.isEmpty
         ? null
         : (spentByCategory.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first;
+
+    final monthDays = DateTime(_month.year, _month.month + 1, 0).day;
+    final now = DateTime.now();
+    final isCurrentMonth = now.year == _month.year && now.month == _month.month;
+    final totalDays = isCurrentMonth ? now.day : monthDays;
+
+    final dailyIncome = List<double>.filled(totalDays, 0);
+    final dailyExpense = List<double>.filled(totalDays, 0);
+    final dailyNet = List<double>.filled(totalDays, 0);
+
+    for (final t in transactions) {
+      final i = t.date.day - 1;
+      if (i < 0 || i >= totalDays) continue;
+      if (!t.isTransfer) {
+        if (t.isIncome) {
+          dailyIncome[i] += t.amount;
+        } else {
+          dailyExpense[i] += t.amount;
+        }
+      }
+      dailyNet[i] += t.isIncome ? t.amount : -t.amount;
+    }
+
+    final patrimony = <double>[];
+    var running = _budget.openingFor(_bankId);
+    for (var i = 0; i < totalDays; i++) {
+      running += dailyNet[i];
+      patrimony.add(running);
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
@@ -434,17 +555,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(child: _metric('Receitas', money(income), AppColors.income, false, Icons.arrow_downward)),
               const SizedBox(width: 14),
               Expanded(child: _metric('Despesas', money(expense), AppColors.expense, false, Icons.arrow_upward)),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _metric(
-                  'Saldo do mês',
-                  money(balance),
-                  balance >= 0 ? AppColors.income : AppColors.expense,
-                  true,
-                  Icons.account_balance_wallet_outlined,
-                  borderColor: balance >= 0 ? AppColors.income : AppColors.expense,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -471,38 +581,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final narrow = constraints.maxWidth < 900;
-              final chart = _card(
-                title: 'Despesas por categoria',
-                subtitle: monthLabel(_month),
-                child: CategoryChart(spent: spentByCategory),
-              );
-              final list = _card(
-                title: 'Todos os lançamentos',
-                subtitle: monthLabel(_month),
-                child: loading
-                    ? _spinner()
-                    : TransactionList(
-                        transactions: transactions,
-                        onDelete: (id) => _fs!.deleteTransaction(id),
-                        emptyMessage: 'Nenhum lançamento neste mês',
-                        showBank: _bankId == Banks.geral.id,
-                      ),
-              );
-              if (narrow) {
-                return Column(children: [chart, const SizedBox(height: 14), list]);
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: chart),
-                  const SizedBox(width: 14),
-                  Expanded(child: list),
+          _card(
+            title: 'Despesas por categoria',
+            subtitle: monthLabel(_month),
+            child: CategoryChart(spent: spentByCategory),
+          ),
+          const SizedBox(height: 14),
+          _card(
+            title: 'Patrimônio ao longo do mês',
+            subtitle: 'Saldo acumulado dia a dia',
+            child: DailyChart(
+              values: patrimony,
+              color: AppColors.accent,
+              showZeroLine: true,
+              height: 220,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _card(
+                  title: 'Entradas por dia',
+                  subtitle: monthLabel(_month),
+                  child: DailyChart(values: dailyIncome, color: AppColors.income),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _card(
+                  title: 'Saídas por dia',
+                  subtitle: monthLabel(_month),
+                  child: DailyChart(values: dailyExpense, color: AppColors.expense),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _card(
+            title: 'Todos os lançamentos',
+            subtitle: '${transactions.length} no mês, movimento de ${money(movement)}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                InkWell(
+                  onTap: () => setState(() => _showAllTransactions = !_showAllTransactions),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border, width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showAllTransactions ? Icons.expand_less : Icons.expand_more,
+                          size: 17,
+                          color: AppColors.accent,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _showAllTransactions ? 'Ocultar lançamentos' : 'Ver lançamentos',
+                          style: AppTheme.ui(13, color: AppColors.accent),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_showAllTransactions) ...[
+                  const SizedBox(height: 16),
+                  loading
+                      ? _spinner()
+                      : TransactionList(
+                          transactions: transactions,
+                          onDelete: (id) => _fs!.deleteTransaction(id),
+                          emptyMessage: 'Nenhum lançamento neste mês',
+                          showBank: _bankId == Banks.geral.id,
+                        ),
                 ],
-              );
-            },
+              ],
+            ),
           ),
         ],
       ),
@@ -724,7 +887,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-  
+
   Widget _miniStat(String label, String value, {Color? valueColor}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),

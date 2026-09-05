@@ -31,6 +31,24 @@ class FirestoreService {
         .map((snap) => snap.docs.map(AppTransaction.fromDoc).toList());
   }
 
+
+  Stream<List<AppTransaction>> transactionsOfYear(int year) {
+    final start = DateTime(year, 1, 1);
+    final end = DateTime(year + 1, 1, 1);
+    return _transactions
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('date', isLessThan: Timestamp.fromDate(end))
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map(AppTransaction.fromDoc).toList());
+  }
+
+  Stream<List<Budget>> budgetsOfYear(int year) => _budgets
+      .where(FieldPath.documentId, isGreaterThanOrEqualTo: '$year-01')
+      .where(FieldPath.documentId, isLessThanOrEqualTo: '$year-12')
+      .snapshots()
+      .map((snap) => snap.docs.map(Budget.fromDoc).toList());
+
   Future<void> addTransaction(AppTransaction transaction) => _transactions.add(transaction.toMap());
 
   Future<void> deleteTransaction(String id) => _transactions.doc(id).delete();

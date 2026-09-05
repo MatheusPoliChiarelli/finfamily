@@ -56,18 +56,15 @@ class BankSelector extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: bank.logo != null
-                          ? Colors.white
+                          ? Colors.transparent
                           : (selected ? bank.color : bank.color.withValues(alpha: 0.22)),
                     ),
                     child: bank.logo != null
-                        ? Padding(
-                            padding: const EdgeInsets.all(3),
-                            child: Image.asset(bank.logo!, fit: BoxFit.contain),
-                          )
+                        ? Image.asset(bank.logo!, fit: BoxFit.cover, width: 30, height: 30)
                         : Text(
                             bank.short,
                             style: AppTheme.ui(
-                              13,
+                              15,
                               color: selected ? bank.onColor : bank.color,
                               weight: FontWeight.w500,
                             ),

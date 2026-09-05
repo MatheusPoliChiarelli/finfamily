@@ -6,6 +6,7 @@ import '../services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../widgets/car_dialogs.dart';
+import 'package:flutter/services.dart';
 
 class CarsScreen extends StatefulWidget {
   const CarsScreen({super.key, required this.fs});
@@ -41,159 +42,165 @@ class _CarsScreenState extends State<CarsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Car>>(
-      stream: widget.fs.cars(),
-      builder: (context, snap) {
-        final all = snap.data ?? const <Car>[];
-        final active = all.where((c) => !c.isSold).toList();
-        final sold = all.where((c) => c.isSold).toList()
-          ..sort((a, b) => b.saleDate!.compareTo(a.saleDate!));
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.add): _newCar,
+        const SingleActivator(LogicalKeyboardKey.numpadAdd): _newCar,
+        const SingleActivator(LogicalKeyboardKey.equal, shift: true): _newCar,
+      },
+      child: Focus(
+        autofocus: true,
+        child: StreamBuilder<List<Car>>(
+          stream: widget.fs.cars(),
+          builder: (context, snap) {
+            final all = snap.data ?? const <Car>[];
+            final active = all.where((c) => !c.isSold).toList();
+            final sold = all.where((c) => c.isSold).toList()
+              ..sort((a, b) => b.saleDate!.compareTo(a.saleDate!));
 
-        final capital = active.fold<double>(0, (s, c) => s + c.purchasePrice);
-        final activeCosts = active.fold<double>(0, (s, c) => s + c.totalCosts);
-        final realized = sold.fold<double>(0, (s, c) => s + c.profit);
-        final avgMargin = sold.isEmpty
-            ? 0.0
-            : sold.fold<double>(0, (s, c) => s + c.margin) / sold.length;
-        final avgDays = sold.isEmpty
-            ? 0
-            : (sold.fold<int>(0, (s, c) => s + c.daysHeld) / sold.length).round();
+            final capital = active.fold<double>(0, (s, c) => s + c.purchasePrice);
+            final activeCosts = active.fold<double>(0, (s, c) => s + c.totalCosts);
+            final realized = sold.fold<double>(0, (s, c) => s + c.profit);
+            final avgMargin = sold.isEmpty
+                ? 0.0
+                : sold.fold<double>(0, (s, c) => s + c.margin) / sold.length;
+            final avgDays = sold.isEmpty
+                ? 0
+                : (sold.fold<int>(0, (s, c) => s + c.daysHeld) / sold.length).round();
 
-        final list = _showSold ? sold : active;
+            final list = _showSold ? sold : active;
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Text('RobMotors', style: AppTheme.display(34)),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Compra e venda de veículos',
-                        style: AppTheme.ui(12, color: AppColors.textMuted),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('RobMotors', style: AppTheme.display(34)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Compra e venda de veículos',
+                            style: AppTheme.ui(12, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        height: 44,
+                        child: FilledButton.icon(
+                          onPressed: _newCar,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Novo carro'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: AppColors.onAccent,
+                            minimumSize: const Size(0, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  const Spacer(),
-                  SizedBox(
-                    height: 44,
-                    child: FilledButton.icon(
-                      onPressed: _newCar,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Novo carro'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        foregroundColor: AppColors.onAccent,
-                        minimumSize: const Size(0, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(child: _metric('Capital em estoque', money(capital), AppColors.accent, Icons.inventory_2_outlined)),
+                      const SizedBox(width: 14),
+                      Expanded(child: _metric('Custos acumulados', money(activeCosts), AppColors.expense, Icons.build_outlined)),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: _metric(
+                          'Lucro realizado',
+                          money(realized),
+                          realized >= 0 ? AppColors.income : AppColors.expense,
+                          Icons.trending_up,
+                          borderColor: sold.isEmpty ? null : (realized >= 0 ? AppColors.income : AppColors.expense),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: _metric(
+                          'Margem média',
+                          sold.isEmpty ? '--' : '${avgMargin.toStringAsFixed(1)}%',
+                          avgMargin >= 0 ? AppColors.income : AppColors.expense,
+                          Icons.percent,
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(child: _miniStat('Total desembolsado nos ativos', money(capital + activeCosts))),
+                      const SizedBox(width: 14),
+                      Expanded(child: _miniStat('Carros ativos', '${active.length}')),
+                      const SizedBox(width: 14),
+                      Expanded(child: _miniStat('Carros vendidos', '${sold.length}')),
+                      const SizedBox(width: 14),
+                      Expanded(child: _miniStat('Tempo médio até a venda', sold.isEmpty ? '--' : '$avgDays dias')),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  Row(
+                    children: [
+                      _tab('Ativos', '${active.length}', !_showSold, () => setState(() => _showSold = false)),
+                      const SizedBox(width: 10),
+                      _tab('Vendidos', '${sold.length}', _showSold, () => setState(() => _showSold = true)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (snap.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+                        ),
+                      ),
+                    )
+                  else if (list.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 60),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border, width: 0.5),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _showSold ? 'Nenhum carro vendido ainda' : 'Nenhum carro no estoque',
+                          style: AppTheme.ui(13, color: AppColors.textMuted),
+                        ),
+                      ),
+                    )
+                  else
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        const columns = 3;
+                        const gap = 14.0;
+                        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+                        return Wrap(
+                          spacing: gap,
+                          runSpacing: gap,
+                          children: list
+                              .map((c) => SizedBox(width: width, child: _carCard(c)))
+                              .toList(),
+                        );
+                      },
+                    ),
                 ],
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(child: _metric('Capital em estoque', money(capital), AppColors.accent, Icons.inventory_2_outlined)),
-                  const SizedBox(width: 14),
-                  Expanded(child: _metric('Custos acumulados', money(activeCosts), AppColors.expense, Icons.build_outlined)),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _metric(
-                      'Lucro realizado',
-                      money(realized),
-                      realized >= 0 ? AppColors.income : AppColors.expense,
-                      Icons.trending_up,
-                      borderColor: sold.isEmpty ? null : (realized >= 0 ? AppColors.income : AppColors.expense),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _metric(
-                      'Margem média',
-                      sold.isEmpty ? '--' : '${avgMargin.toStringAsFixed(1)}%',
-                      avgMargin >= 0 ? AppColors.income : AppColors.expense,
-                      Icons.percent,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(child: _miniStat('Total desembolsado nos ativos', money(capital + activeCosts))),
-                  const SizedBox(width: 14),
-                  Expanded(child: _miniStat('Carros ativos', '${active.length}')),
-                  const SizedBox(width: 14),
-                  Expanded(child: _miniStat('Carros vendidos', '${sold.length}')),
-                  const SizedBox(width: 14),
-                  Expanded(child: _miniStat('Tempo médio até a venda', sold.isEmpty ? '--' : '$avgDays dias')),
-                ],
-              ),
-              const SizedBox(height: 22),
-              Row(
-                children: [
-                  _tab('Ativos', '${active.length}', !_showSold, () => setState(() => _showSold = false)),
-                  const SizedBox(width: 10),
-                  _tab('Vendidos', '${sold.length}', _showSold, () => setState(() => _showSold = true)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (snap.connectionState == ConnectionState.waiting)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 60),
-                  child: Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
-                    ),
-                  ),
-                )
-              else if (list.isEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 60),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border, width: 0.5),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _showSold ? 'Nenhum carro vendido ainda' : 'Nenhum carro no estoque',
-                      style: AppTheme.ui(13, color: AppColors.textMuted),
-                    ),
-                  ),
-                )
-              else
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final columns = constraints.maxWidth > 1250
-                        ? 3
-                        : constraints.maxWidth > 850
-                            ? 2
-                            : 1;
-                    const gap = 14.0;
-                    final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-                    return Wrap(
-                      spacing: gap,
-                      runSpacing: gap,
-                      children: list
-                          .map((c) => SizedBox(width: width, child: _carCard(c)))
-                          .toList(),
-                    );
-                  },
-                ),
-            ],
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 

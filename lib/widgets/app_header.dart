@@ -29,6 +29,7 @@ class AppHeader extends StatelessWidget {
     this.showActions = true,
         required this.dayBalance,
     this.showDayBalance = false,
+    this.showBalances = true,
   });
 
   final DateTime month;
@@ -51,6 +52,7 @@ class AppHeader extends StatelessWidget {
   final bool showActions;
     final double dayBalance;
   final bool showDayBalance;
+  final bool showBalances;
 
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
@@ -88,54 +90,57 @@ class AppHeader extends StatelessWidget {
             ),
             const SizedBox(width: 20),
             if (showActions) ...[
-              _actionButton('Saída', Icons.arrow_upward, AppColors.expense, onNewExpense, canAddTransaction),
+              _actionButton('Saída', Icons.keyboard_arrow_down, AppColors.expense, onNewExpense, canAddTransaction),
               const SizedBox(width: 10),
-              _actionButton('Entrada', Icons.arrow_downward, AppColors.income, onNewIncome, canAddTransaction),
+              _actionButton('Entrada', Icons.keyboard_arrow_up, AppColors.income, onNewIncome, canAddTransaction),
               const SizedBox(width: 16),
             ],
             _avatarMenu(name, email),
           ],
         ),
         const SizedBox(height: 18),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              BalanceField(
-                key: ValueKey('open-${monthKey(month)}-$selectedBankId-$openingBalance'),
-                label: 'Saldo inicial',
-                icon: Icons.savings_outlined,
-                value: openingBalance,
-                onSave: balancesEditable ? onSaveOpeningBalance : null,
-              ),
-              const SizedBox(width: 12),
-              if (showDayBalance) ...[
+        if (showBalances) ...[
+          const SizedBox(height: 18),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
                 BalanceField(
-                  label: 'Saldo do dia',
-                  icon: Icons.today_outlined,
-                  value: dayBalance,
-                  valueColor: dayBalance >= 0 ? AppColors.income : AppColors.expense,
+                  key: ValueKey('open-${monthKey(month)}-$selectedBankId-$openingBalance'),
+                  label: 'Saldo inicial',
+                  icon: Icons.savings_outlined,
+                  value: openingBalance,
+                  onSave: balancesEditable ? onSaveOpeningBalance : null,
                 ),
                 const SizedBox(width: 12),
+                if (showDayBalance) ...[
+                  BalanceField(
+                    label: 'Saldo do dia',
+                    icon: Icons.today_outlined,
+                    value: dayBalance,
+                    valueColor: dayBalance >= 0 ? AppColors.income : AppColors.expense,
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                BalanceField(
+                  key: ValueKey('close-${monthKey(month)}-$selectedBankId-$closingBalance'),
+                  label: 'Saldo final',
+                  icon: Icons.account_balance_outlined,
+                  value: closingBalance,
+                  onSave: balancesEditable ? onSaveClosingBalance : null,
+                ),
+                const SizedBox(width: 12),
+                BalanceField(
+                  label: 'Balanço do mês',
+                  icon: Icons.swap_vert,
+                  value: monthBalance,
+                  valueColor: balanceColor,
+                  borderColor: balanceColor,
+                ),
               ],
-              BalanceField(
-                key: ValueKey('close-${monthKey(month)}-$selectedBankId-$closingBalance'),
-                label: 'Saldo final',
-                icon: Icons.account_balance_outlined,
-                value: closingBalance,
-                onSave: balancesEditable ? onSaveClosingBalance : null,
-              ),
-              const SizedBox(width: 12),
-              BalanceField(
-                label: 'Balanço do mês',
-                icon: Icons.swap_vert,
-                value: monthBalance,
-                valueColor: balanceColor,
-                borderColor: balanceColor,
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
         if (showDayStrip) ...[
           const SizedBox(height: 18),
           _dayStrip(),
@@ -192,6 +197,7 @@ class AppHeader extends StatelessWidget {
             final day = index + 1;
             final selected = day == selectedDay;
             final isToday = isCurrentMonth && day == now.day;
+            final isPast = !isCurrentMonth || day <= now.day;
 
             return Padding(
               padding: EdgeInsets.only(right: day == totalDays ? 0 : gap),
@@ -208,10 +214,10 @@ class AppHeader extends StatelessWidget {
                     border: Border.all(
                       color: selected
                           ? AppColors.accent
-                          : isToday
+                          : isPast
                               ? AppColors.accent.withValues(alpha: 0.6)
                               : AppColors.border,
-                      width: selected || isToday ? 1 : 0.5,
+                      width: selected || isPast ? 1 : 0.5,
                     ),
                     boxShadow: selected
                         ? [
@@ -229,7 +235,7 @@ class AppHeader extends StatelessWidget {
                       12,
                       color: selected
                           ? AppColors.onAccent
-                          : isToday
+                          : isPast
                               ? AppColors.accent
                               : AppColors.textMuted,
                       weight: selected || isToday ? FontWeight.w500 : FontWeight.w400,
@@ -274,6 +280,7 @@ class AppHeader extends StatelessWidget {
     );
   }
 
+  
   Widget _avatarMenu(String name, String email) {
     return PopupMenuButton<String>(
       offset: const Offset(0, 52),

@@ -60,6 +60,7 @@ class AppSidebar extends StatelessWidget {
           _item('fixed', Icons.receipt_long_outlined, 'Contas fixas'),
                     _item('cars', Icons.directions_car_outlined, 'RobMotors'),
           _item('fashion', Icons.checkroom_outlined, 'Vise Versa'),
+          _item('year', Icons.calendar_month_outlined, 'Resumo do ano'),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.all(24),

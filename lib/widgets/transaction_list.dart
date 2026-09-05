@@ -82,18 +82,12 @@ class TransactionList extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (bank.logo != null) ...[
-                              Container(
+                               Container(
                                 width: 13,
                                 height: 13,
                                 clipBehavior: Clip.antiAlias,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white,
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(1),
-                                  child: Image.asset(bank.logo!, fit: BoxFit.contain),
-                                ),
+                                decoration: const BoxDecoration(shape: BoxShape.circle),
+                                child: Image.asset(bank.logo!, fit: BoxFit.cover),
                               ),
                               const SizedBox(width: 5),
                             ],

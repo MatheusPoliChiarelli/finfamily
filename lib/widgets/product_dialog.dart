@@ -56,6 +56,12 @@ class _ProductDialogState extends State<_ProductDialog> {
   final _total = TextEditingController();
   final _quantity = TextEditingController(text: '1');
 
+  final _dialogFocus = FocusNode();
+  final _brandFocus = FocusNode();
+
+  int _typeIndex = 0;
+  bool _typeMode = true;
+
   DateTime _date = DateTime.now();
   String _type = 'vestido';
   String? _error;
@@ -63,12 +69,54 @@ class _ProductDialogState extends State<_ProductDialog> {
   int get _qty => int.tryParse(_quantity.text) ?? 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _dialogFocus.requestFocus());
+  }
+
+  @override
   void dispose() {
     _brand.dispose();
     _model.dispose();
     _total.dispose();
     _quantity.dispose();
+    _dialogFocus.dispose();
+    _brandFocus.dispose();
     super.dispose();
+  }
+
+  void _moveType(int delta) {
+    if (!_typeMode) return;
+    final next = (_typeIndex + delta).clamp(0, PieceTypes.all.length - 1);
+    setState(() {
+      _typeIndex = next;
+      _type = PieceTypes.all[next].id;
+    });
+  }
+
+  void _confirmType() {
+    setState(() => _typeMode = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _brandFocus.requestFocus());
+  }
+
+  void _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+      if (_typeMode) {
+        _confirmType();
+        return;
+      }
+      _save();
+      return;
+    }
+    if (!_typeMode) return;
+
+    if (key == LogicalKeyboardKey.arrowRight) _moveType(1);
+    if (key == LogicalKeyboardKey.arrowLeft) _moveType(-1);
+    if (key == LogicalKeyboardKey.arrowDown) _moveType(3);
+    if (key == LogicalKeyboardKey.arrowUp) _moveType(-3);
   }
 
   Future<void> _pickDate() async {
@@ -119,156 +167,162 @@ class _ProductDialogState extends State<_ProductDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520, maxHeight: 720),
-        child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.enter): _save,
-            const SingleActivator(LogicalKeyboardKey.numpadEnter): _save,
-          },
-          child: Focus(
-            autofocus: true,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Nova peça', style: AppTheme.display(24)),
-                  const SizedBox(height: 4),
-                  Text('Entra no estoque da Vise Versa', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                  const SizedBox(height: 22),
-                  Text('Dados da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _brand,
-                          autofocus: true,
-                          style: AppTheme.ui(14),
-                          decoration: const InputDecoration(hintText: 'Marca'),
-                        ),
+        child: KeyboardListener(
+          focusNode: _dialogFocus,
+          autofocus: true,
+          onKeyEvent: _onKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Nova peça', style: AppTheme.display(24)),
+                const SizedBox(height: 4),
+                Text('Entra no estoque da Vise Versa', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Text('Tipo da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                    const SizedBox(width: 8),
+                    if (_typeMode)
+                      Text(
+                        'setas para navegar, enter para confirmar',
+                        style: AppTheme.ui(10, color: AppColors.accent),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _model,
-                          style: AppTheme.ui(14),
-                          decoration: const InputDecoration(hintText: 'Modelo'),
-                        ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const columns = 3;
+                    const gap = 8.0;
+                    final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: PieceTypes.all
+                          .map((t) => SizedBox(width: width, child: _typeChip(t)))
+                          .toList(),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                Text('Dados da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _brand,
+                        focusNode: _brandFocus,
+                        style: AppTheme.ui(14),
+                        decoration: const InputDecoration(hintText: 'Marca'),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Text('Tipo da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                  const SizedBox(height: 10),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      const columns = 3;
-                      const gap = 8.0;
-                      final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-                      return Wrap(
-                        spacing: gap,
-                        runSpacing: gap,
-                        children: PieceTypes.all
-                            .map((t) => SizedBox(width: width, child: _typeChip(t)))
-                            .toList(),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 110,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text('Quantidade', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _quantity,
-                              style: AppTheme.uiMoney(15),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(4),
-                              ],
-                              onChanged: (_) => setState(() {}),
-                              decoration: const InputDecoration(hintText: '1'),
-                            ),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _model,
+                        style: AppTheme.ui(14),
+                        decoration: const InputDecoration(hintText: 'Modelo'),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text('Valor total pago', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _total,
-                              style: AppTheme.uiMoney(15),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              inputFormatters: [CurrencyInputFormatter()],
-                              onChanged: (_) => setState(() {}),
-                              decoration: _moneyInput(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_qty > 0 && total > 0) ...[
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text('Custo por peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                        const SizedBox(width: 10),
-                        Text(
-                          money(total / _qty),
-                          style: AppTheme.uiMoney(13, color: AppColors.accent, weight: FontWeight.w500),
-                        ),
-                      ],
                     ),
                   ],
-                  const SizedBox(height: 18),
-                  Text('Data da compra', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: _pickDate,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      height: 52,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border, width: 0.5),
-                      ),
-                      child: Row(
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 110,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Icon(Icons.calendar_today_outlined, size: 15, color: AppColors.textSecondary),
-                          const SizedBox(width: 12),
-                          Text(dayLabel(_date), style: AppTheme.ui(14)),
+                          Text('Quantidade', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _quantity,
+                            style: AppTheme.uiMoney(15),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(4),
+                            ],
+                            onChanged: (_) => setState(() {}),
+                            decoration: const InputDecoration(hintText: '1'),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 14),
-                    Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Valor total pago', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _total,
+                            style: AppTheme.uiMoney(15),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [CurrencyInputFormatter()],
+                            onChanged: (_) => setState(() {}),
+                            decoration: _moneyInput(),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                  const SizedBox(height: 26),
-                  FilledButton(onPressed: _save, child: const Text('Salvar')),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('Cancelar', style: AppTheme.ui(13, color: AppColors.textSecondary)),
+                ),
+                if (_qty > 0 && total > 0) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text('Custo por peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                      const SizedBox(width: 10),
+                      Text(
+                        money(total / _qty),
+                        style: AppTheme.uiMoney(13, color: AppColors.accent, weight: FontWeight.w500),
+                      ),
+                    ],
                   ),
                 ],
-              ),
+                const SizedBox(height: 18),
+                Text('Data da compra', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    height: 52,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border, width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, size: 15, color: AppColors.textSecondary),
+                        const SizedBox(width: 12),
+                        Text(dayLabel(_date), style: AppTheme.ui(14)),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 14),
+                  Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),
+                ],
+                const SizedBox(height: 26),
+                FilledButton(onPressed: _save, child: const Text('Salvar')),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancelar', style: AppTheme.ui(13, color: AppColors.textSecondary)),
+                ),
+              ],
             ),
           ),
         ),
@@ -279,7 +333,11 @@ class _ProductDialogState extends State<_ProductDialog> {
   Widget _typeChip(PieceType t) {
     final selected = _type == t.id;
     return InkWell(
-      onTap: () => setState(() => _type = t.id),
+      onTap: () => setState(() {
+        _type = t.id;
+        _typeIndex = PieceTypes.all.indexWhere((o) => o.id == t.id);
+        _typeMode = false;
+      }),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         height: 42,
@@ -457,4 +515,4 @@ class _SellPieceDialogState extends State<_SellPieceDialog> {
       ),
     );
   }
-}
+} 

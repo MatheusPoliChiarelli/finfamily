@@ -62,6 +62,12 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   final _year = TextEditingController();
   final _quantity = TextEditingController(text: '1');
 
+  final _amountFocus = FocusNode();
+  final _dialogFocus = FocusNode();
+
+  int _categoryIndex = 0;
+  bool _categoryMode = true;
+
   late Category _category;
   late String _bankId;
   String? _carId;
@@ -70,7 +76,6 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   String _pieceType = 'vestido';
   String? _incomeKind;
   String? _error;
-  
 
   List<Category> get _options => [
         ...(widget.isIncome ? Categories.incomes : Categories.expenses),
@@ -79,6 +84,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       ];
 
   bool get _isTransfer => Categories.isTransfer(_category.id);
+
   Color get _accent => widget.isIncome ? AppColors.income : AppColors.expense;
 
   bool get _isRobMotors => _category.id == 'robmotors';
@@ -111,6 +117,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     super.initState();
     _category = _options.first;
     _bankId = widget.bankId;
+    _categoryIndex = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _dialogFocus.requestFocus());
   }
 
   @override
@@ -121,7 +129,51 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     _model.dispose();
     _year.dispose();
     _quantity.dispose();
+    _amountFocus.dispose();
+    _dialogFocus.dispose();
     super.dispose();
+  }
+
+  void _moveCategory(int delta) {
+    if (!_categoryMode) return;
+    final next = (_categoryIndex + delta).clamp(0, _options.length - 1);
+    setState(() {
+      _categoryIndex = next;
+      _category = _options[next];
+      _carId = null;
+      _productId = null;
+      _incomeKind = null;
+    });
+  }
+
+  void _confirmCategory() {
+    setState(() => _categoryMode = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _amountFocus.requestFocus());
+  }
+
+  void _onEnter() {
+    if (_categoryMode) {
+      _confirmCategory();
+      return;
+    }
+    _save();
+  }
+
+  void _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+      _onEnter();
+      return;
+    }
+    if (!_categoryMode) return;
+
+    if (key == LogicalKeyboardKey.arrowRight) _moveCategory(1);
+    if (key == LogicalKeyboardKey.arrowLeft) _moveCategory(-1);
+    if (key == LogicalKeyboardKey.arrowDown) _moveCategory(3);
+    if (key == LogicalKeyboardKey.arrowUp) _moveCategory(-3);
   }
 
   String _resolveDescription() {
@@ -216,9 +268,9 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         fashionBrand: _isFashionExpense ? _brand.text.trim() : null,
         fashionModel: _isFashionExpense ? _model.text.trim() : null,
         fashionType: _isFashionExpense ? _pieceType : null,
+        isTransfer: _isTransfer,
         createdBy: user.uid,
         createdByName: user.displayName ?? 'Alguém',
-                isTransfer: _isTransfer,
       ),
     );
   }
@@ -245,105 +297,144 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 540, maxHeight: 760),
-        child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.enter): _save,
-            const SingleActivator(LogicalKeyboardKey.numpadEnter): _save,
-          },
-          child: Focus(
-            autofocus: true,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _headerRow(),
-                  const SizedBox(height: 24),
-                  Text('Categoria', style: AppTheme.ui(12, color: AppColors.textMuted)),
+        child: KeyboardListener(
+          focusNode: _dialogFocus,
+          autofocus: true,
+          onKeyEvent: _onKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _headerRow(),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Text('Categoria', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                    const SizedBox(width: 8),
+                    if (_categoryMode)
+                      Text(
+                        'setas para navegar, enter para confirmar',
+                        style: AppTheme.ui(10, color: AppColors.accent),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _grid(_options.map((c) => _categoryChip(c)).toList()),
+                if (_isCarIncome) ...[
+                  const SizedBox(height: 22),
+                  Text('Tipo da entrada', style: AppTheme.ui(12, color: AppColors.textMuted)),
                   const SizedBox(height: 10),
-                  _grid(_options.map((c) => _categoryChip(c)).toList()),
-                  if (_isCarIncome) ...[
-                    const SizedBox(height: 22),
-                    Text('Tipo da entrada', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _radioTile('Comissão', Icons.handshake_outlined, _incomeKind == 'comissao', () {
-                            setState(() {
-                              _incomeKind = 'comissao';
-                              _carId = null;
-                            });
-                          }),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _radioTile('Venda de carro', Icons.sell_outlined, _incomeKind == 'venda', () {
-                            setState(() => _incomeKind = 'venda');
-                          }),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (_isCarSale) ...[
-                    const SizedBox(height: 22),
-                    Text('Carro vendido', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
-                    if (widget.activeCars.isEmpty)
-                      _emptyBox('Nenhum carro ativo no estoque')
-                    else
-                      ...widget.activeCars.map(_carOption),
-                  ],
-                  if (_isCarExpense) ...[
-                    const SizedBox(height: 22),
-                    Text('Carro', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
-                    _newOption('Novo carro', _carId == _newId, () => setState(() => _carId = _newId)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _radioTile('Comissão', Icons.handshake_outlined, _incomeKind == 'comissao', () {
+                          setState(() {
+                            _incomeKind = 'comissao';
+                            _carId = null;
+                          });
+                        }),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _radioTile('Venda de carro', Icons.sell_outlined, _incomeKind == 'venda', () {
+                          setState(() => _incomeKind = 'venda');
+                        }),
+                      ),
+                    ],
+                  ),
+                ],
+                if (_isCarSale) ...[
+                  const SizedBox(height: 22),
+                  Text('Carro vendido', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 10),
+                  if (widget.activeCars.isEmpty)
+                    _emptyBox('Nenhum carro ativo no estoque')
+                  else
                     ...widget.activeCars.map(_carOption),
-                  ],
-                  if (_isNewCar) ...[
-                    const SizedBox(height: 18),
-                    Text('Dados do carro', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
-                    _brandModelYear(),
-                  ],
-                  if (_isCarExpense && !_isNewCar && _carId != null) ...[
-                    const SizedBox(height: 22),
-                    Text('Tipo do custo', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
-                    _grid(CarCostTypes.all
-                        .where((t) => t.id != 'compra')
-                        .map((t) => _costChip(t))
-                        .toList()),
-                  ],
-                  if (_isFashionExpense) ...[
-                    const SizedBox(height: 22),
-                    Text('Dados da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _brand,
-                            style: AppTheme.ui(14),
-                            decoration: const InputDecoration(hintText: 'Marca'),
-                          ),
+                ],
+                if (_isCarExpense) ...[
+                  const SizedBox(height: 22),
+                  Text('Carro', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 10),
+                  _newOption('Novo carro', _carId == _newId, () => setState(() => _carId = _newId)),
+                  ...widget.activeCars.map(_carOption),
+                ],
+                if (_isNewCar) ...[
+                  const SizedBox(height: 18),
+                  Text('Dados do carro', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 10),
+                  _brandModelYear(),
+                ],
+                if (_isCarExpense && !_isNewCar && _carId != null) ...[
+                  const SizedBox(height: 22),
+                  Text('Tipo do custo', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 10),
+                  _grid(CarCostTypes.all
+                      .where((t) => t.id != 'compra')
+                      .map((t) => _costChip(t))
+                      .toList()),
+                ],
+                if (_isFashionExpense) ...[
+                  const SizedBox(height: 22),
+                  Text('Dados da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _brand,
+                          style: AppTheme.ui(14),
+                          decoration: const InputDecoration(hintText: 'Marca'),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _model,
-                            style: AppTheme.ui(14),
-                            decoration: const InputDecoration(hintText: 'Modelo'),
-                          ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _model,
+                          style: AppTheme.ui(14),
+                          decoration: const InputDecoration(hintText: 'Modelo'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text('Tipo da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 10),
+                  _grid(PieceTypes.all.map((t) => _pieceChip(t)).toList()),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: 140,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('Quantidade', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _quantity,
+                          style: AppTheme.uiMoney(15),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(4),
+                          ],
+                          onChanged: (_) => setState(() {}),
+                          decoration: const InputDecoration(hintText: '1'),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
-                    Text('Tipo da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
-                    _grid(PieceTypes.all.map((t) => _pieceChip(t)).toList()),
+                  ),
+                ],
+                if (_isFashionIncome) ...[
+                  const SizedBox(height: 22),
+                  Text('Peça vendida', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 10),
+                  if (_availableProducts.isEmpty)
+                    _emptyBox('Nenhuma peça em estoque')
+                  else
+                    ..._availableProducts.map(_productOption),
+                  if (_selectedProduct != null) ...[
                     const SizedBox(height: 18),
                     SizedBox(
                       width: 140,
@@ -367,104 +458,71 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                       ),
                     ),
                   ],
-                  if (_isFashionIncome) ...[
-                    const SizedBox(height: 22),
-                    Text('Peça vendida', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 10),
-                    if (_availableProducts.isEmpty)
-                      _emptyBox('Nenhuma peça em estoque')
-                    else
-                      ..._availableProducts.map(_productOption),
-                    if (_selectedProduct != null) ...[
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: 140,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text('Quantidade', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _quantity,
-                              style: AppTheme.uiMoney(15),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(4),
-                              ],
-                              onChanged: (_) => setState(() {}),
-                              decoration: const InputDecoration(hintText: '1'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                  if (_showAmount) ...[
-                    const SizedBox(height: 22),
-                    Text(_amountLabel, style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _amount,
-                      autofocus: true,
-                      style: AppTheme.uiMoney(15),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [CurrencyInputFormatter()],
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => _save(),
-                      decoration: _moneyInput(),
-                    ),
-                    if (_isFashionExpense && _qty > 0 && parseCurrency(_amount.text) > 0) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Text('Custo por peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                          const SizedBox(width: 10),
-                          Text(
-                            money(parseCurrency(_amount.text) / _qty),
-                            style: AppTheme.uiMoney(13, color: AppColors.accent, weight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (_isFashionIncome && _qty > 0 && parseCurrency(_amount.text) > 0) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Text('Lucro da venda', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                          const SizedBox(width: 10),
-                          Text(
-                            money(parseCurrency(_amount.text) - (_selectedProduct!.unitCost * _qty)),
-                            style: AppTheme.uiMoney(13, color: AppColors.income, weight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                  if (_needsFreeText) ...[
-                    const SizedBox(height: 22),
-                    Text('Descrição', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _description,
-                      style: AppTheme.ui(14),
-                      onSubmitted: (_) => _save(),
-                      decoration: const InputDecoration(hintText: 'Do que se trata'),
-                    ),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 14),
-                    Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),
-                  ],
-                  const SizedBox(height: 26),
-                  FilledButton(onPressed: _save, child: const Text('Salvar')),
+                ],
+                if (_showAmount) ...[
+                  const SizedBox(height: 22),
+                  Text(_amountLabel, style: AppTheme.ui(12, color: AppColors.textMuted)),
                   const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('Cancelar', style: AppTheme.ui(13, color: AppColors.textSecondary)),
+                  TextField(
+                    controller: _amount,
+                    focusNode: _amountFocus,
+                    style: AppTheme.uiMoney(15),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [CurrencyInputFormatter()],
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => _save(),
+                    decoration: _moneyInput(),
+                  ),
+                  if (_isFashionExpense && _qty > 0 && parseCurrency(_amount.text) > 0) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Text('Custo por peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                        const SizedBox(width: 10),
+                        Text(
+                          money(parseCurrency(_amount.text) / _qty),
+                          style: AppTheme.uiMoney(13, color: AppColors.accent, weight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (_isFashionIncome && _qty > 0 && parseCurrency(_amount.text) > 0) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Text('Lucro da venda', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                        const SizedBox(width: 10),
+                        Text(
+                          money(parseCurrency(_amount.text) - (_selectedProduct!.unitCost * _qty)),
+                          style: AppTheme.uiMoney(13, color: AppColors.income, weight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+                if (_needsFreeText) ...[
+                  const SizedBox(height: 22),
+                  Text('Descrição', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _description,
+                    style: AppTheme.ui(14),
+                    onSubmitted: (_) => _save(),
+                    decoration: const InputDecoration(hintText: 'Do que se trata'),
                   ),
                 ],
-              ),
+                if (_error != null) ...[
+                  const SizedBox(height: 14),
+                  Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),
+                ],
+                const SizedBox(height: 26),
+                FilledButton(onPressed: _save, child: const Text('Salvar')),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancelar', style: AppTheme.ui(13, color: AppColors.textSecondary)),
+                ),
+              ],
             ),
           ),
         ),
@@ -771,6 +829,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       selected: selected,
       onTap: () => setState(() {
         _category = c;
+        _categoryIndex = _options.indexWhere((o) => o.id == c.id);
+        _categoryMode = false;
         _carId = null;
         _productId = null;
         _incomeKind = null;

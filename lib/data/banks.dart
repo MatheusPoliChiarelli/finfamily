@@ -22,7 +22,7 @@ class Banks {
   static const geral = Bank(
     id: 'geral',
     name: 'Geral',
-    short: 'G',
+    short: '\$',
     color: Color(0xFF4DA3FF),
     onColor: Color(0xFF08121F),
   );
@@ -54,12 +54,27 @@ class Banks {
     logo: 'assets/banks/nubank.png',
   );
 
-  static const all = <Bank>[geral, sicoob, itau, nubank];
+  static const all = <Bank>[geral, sicoob, itau, nubank, vr];
 
-  static const accounts = <Bank>[sicoob, itau, nubank];
+  static const accounts = <Bank>[sicoob, itau, nubank, vr];
 
   static Bank byId(String? id) => all.firstWhere(
         (b) => b.id == id,
         orElse: () => geral,
       );
+
+
+
+  static const vr = Bank(
+    id: 'vr',
+    name: 'Vale-Alimentação',
+    short: 'V',
+    color: Color(0xFF00B336),
+    onColor: Color(0xFF04240D),
+    logo: 'assets/banks/vr.png',
+  );
+
+
 }
+
+
