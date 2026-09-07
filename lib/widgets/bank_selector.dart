@@ -35,15 +35,6 @@ class BankSelector extends StatelessWidget {
                   color: selected ? bank.color : AppColors.border,
                   width: selected ? 1 : 0.5,
                 ),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: bank.color.withValues(alpha: 0.4),
-                          blurRadius: 18,
-                          spreadRadius: 0,
-                        ),
-                      ]
-                    : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

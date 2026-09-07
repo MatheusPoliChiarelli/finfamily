@@ -6,7 +6,7 @@ import '../models/app_transaction.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 
-class TransactionList extends StatelessWidget {
+class TransactionList extends StatefulWidget {
   const TransactionList({
     super.key,
     required this.transactions,
@@ -23,24 +23,83 @@ class TransactionList extends StatelessWidget {
   final bool showBank;
 
   @override
-  Widget build(BuildContext context) {
-    if (transactions.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: Text(emptyMessage, style: AppTheme.ui(13, color: AppColors.textMuted)),
-        ),
-      );
-    }
+  State<TransactionList> createState() => _TransactionListState();
+}
 
-    return Column(children: transactions.map(_row).toList());
+class _TransactionListState extends State<TransactionList> {
+  String _filter = 'all';
+
+  List<AppTransaction> get _filtered {
+    if (_filter == 'income') return widget.transactions.where((t) => t.isIncome).toList();
+    if (_filter == 'expense') return widget.transactions.where((t) => !t.isIncome).toList();
+    return widget.transactions;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = _filtered;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _filterTab('Todas', 'all'),
+            const SizedBox(width: 6),
+            _filterTab('Entradas', 'income'),
+            const SizedBox(width: 6),
+            _filterTab('Saídas', 'expense'),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (list.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Center(
+              child: Text(
+                _filter == 'all' ? widget.emptyMessage : 'Nada neste filtro',
+                style: AppTheme.ui(13, color: AppColors.textMuted),
+              ),
+            ),
+          )
+        else
+          ...list.map(_row),
+      ],
+    );
+  }
+
+  Widget _filterTab(String label, String value) {
+    final selected = _filter == value;
+    return InkWell(
+      onTap: () => setState(() => _filter = value),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.border,
+            width: selected ? 1 : 0.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTheme.ui(
+            11,
+            color: selected ? AppColors.accent : AppColors.textMuted,
+            weight: selected ? FontWeight.w500 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _row(AppTransaction t) {
-    final meta = showDate
-        ? '${t.categoryName} · ${t.createdByName} · ${dayLabel(t.date)}'
-        : '${t.categoryName} · ${t.createdByName}';
-
+    final meta = widget.showDate ? dayLabel(t.date) : '';
     final bank = Banks.byId(t.bankId);
 
     return Container(
@@ -69,7 +128,7 @@ class TransactionList extends StatelessWidget {
                     Flexible(
                       child: Text(t.description, style: AppTheme.ui(13), overflow: TextOverflow.ellipsis),
                     ),
-                    if (showBank && t.bankId.isNotEmpty) ...[
+                    if (widget.showBank && t.bankId.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -82,7 +141,7 @@ class TransactionList extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (bank.logo != null) ...[
-                               Container(
+                              Container(
                                 width: 13,
                                 height: 13,
                                 clipBehavior: Clip.antiAlias,
@@ -105,8 +164,10 @@ class TransactionList extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 3),
-                Text(meta, style: AppTheme.ui(11, color: AppColors.textMuted)),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(meta, style: AppTheme.ui(11, color: AppColors.textMuted)),
+                ],
               ],
             ),
           ),
@@ -116,7 +177,7 @@ class TransactionList extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           InkWell(
-            onTap: () => onDelete(t.id),
+            onTap: () => widget.onDelete(t.id),
             customBorder: const CircleBorder(),
             child: const Padding(
               padding: EdgeInsets.all(6),

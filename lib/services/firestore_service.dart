@@ -136,8 +136,21 @@ class FirestoreService {
 
 
 
+  Future<void> restockProduct(Product product, int addedQty, double addedTotal) {
+    final newQuantity = product.quantity + addedQty;
+    final newUnitCost = (product.invested + addedTotal) / newQuantity;
+    return _products.doc(product.id).update({
+      'quantity': newQuantity,
+      'unitCost': newUnitCost,
+    });
+  }
 
 
+  Future<void> updateCar(String carId, Map<String, dynamic> data) =>
+      _cars.doc(carId).update(data);
+
+  Future<void> updateProduct(String productId, Map<String, dynamic> data) =>
+      _products.doc(productId).update(data);
 
 
 }

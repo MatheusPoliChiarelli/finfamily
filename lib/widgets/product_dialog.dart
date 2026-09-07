@@ -62,7 +62,7 @@ class _ProductDialogState extends State<_ProductDialog> {
   int _typeIndex = 0;
   bool _typeMode = true;
 
-  DateTime _date = DateTime.now();
+
   String _type = 'vestido';
   String? _error;
 
@@ -119,15 +119,6 @@ class _ProductDialogState extends State<_ProductDialog> {
     if (key == LogicalKeyboardKey.arrowUp) _moveType(-3);
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2015),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) setState(() => _date = picked);
-  }
 
   void _save() {
     final total = parseCurrency(_total.text);
@@ -151,7 +142,7 @@ class _ProductDialogState extends State<_ProductDialog> {
         brand: _brand.text.trim(),
         model: _model.text.trim(),
         type: _type,
-        purchaseDate: _date,
+        purchaseDate: DateTime.now(),
         unitCost: total / _qty,
         quantity: _qty,
       ),
@@ -288,29 +279,6 @@ class _ProductDialogState extends State<_ProductDialog> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 18),
-                Text('Data da compra', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: _pickDate,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    height: 52,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceRaised,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border, width: 0.5),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_today_outlined, size: 15, color: AppColors.textSecondary),
-                        const SizedBox(width: 12),
-                        Text(dayLabel(_date), style: AppTheme.ui(14)),
-                      ],
-                    ),
-                  ),
-                ),
                 if (_error != null) ...[
                   const SizedBox(height: 14),
                   Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),

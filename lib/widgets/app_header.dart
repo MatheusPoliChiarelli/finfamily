@@ -30,6 +30,7 @@ class AppHeader extends StatelessWidget {
         required this.dayBalance,
     this.showDayBalance = false,
     this.showBalances = true,
+
   });
 
   final DateTime month;
@@ -107,7 +108,7 @@ class AppHeader extends StatelessWidget {
               children: [
                 BalanceField(
                   key: ValueKey('open-${monthKey(month)}-$selectedBankId-$openingBalance'),
-                  label: 'Saldo inicial',
+                  label: 'Saldo inicial do mês',
                   icon: Icons.savings_outlined,
                   value: openingBalance,
                   onSave: balancesEditable ? onSaveOpeningBalance : null,
@@ -124,7 +125,7 @@ class AppHeader extends StatelessWidget {
                 ],
                 BalanceField(
                   key: ValueKey('close-${monthKey(month)}-$selectedBankId-$closingBalance'),
-                  label: 'Saldo final',
+                  label: 'Saldo final do mês',
                   icon: Icons.account_balance_outlined,
                   value: closingBalance,
                   onSave: balancesEditable ? onSaveClosingBalance : null,
@@ -284,6 +285,8 @@ class AppHeader extends StatelessWidget {
   Widget _avatarMenu(String name, String email) {
     return PopupMenuButton<String>(
       offset: const Offset(0, 52),
+      padding: EdgeInsets.zero,
+      splashRadius: 22,
       color: AppColors.surfaceRaised,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -316,23 +319,24 @@ class AppHeader extends StatelessWidget {
           ),
         ),
       ],
-      child: Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.accentSoft,
-          border: Border.all(color: AppColors.borderAccent, width: 0.5),
-        ),
-        child: Text(
-          _initials(name),
-          style: AppTheme.ui(13, color: AppColors.accent, weight: FontWeight.w500),
+      child: ClipOval(
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.accentSoft,
+            border: Border.all(color: AppColors.borderAccent, width: 0.5),
+          ),
+          child: Text(
+            _initials(name),
+            style: AppTheme.ui(13, color: AppColors.accent, weight: FontWeight.w500),
+          ),
         ),
       ),
     );
   }
-
   Widget _arrow(IconData icon, VoidCallback onTap, Color color) {
     return InkWell(
       onTap: onTap,

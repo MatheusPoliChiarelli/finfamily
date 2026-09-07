@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/fashion.dart';
 import '../models/product.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
+import '../widgets/edit_dialogs.dart';
 import '../widgets/product_dialog.dart';
-import 'package:flutter/services.dart';
 
 class ViseVersaScreen extends StatefulWidget {
   const ViseVersaScreen({super.key, required this.fs});
@@ -19,13 +20,19 @@ class ViseVersaScreen extends StatefulWidget {
 
 class _ViseVersaScreenState extends State<ViseVersaScreen> {
   bool _showSoldOut = false;
+  String? _brandFilter;
+
+  Future<void> _editProduct(Product product) async {
+    final data = await showEditProductDialog(context, product);
+    if (data != null) await widget.fs.updateProduct(product.id, data);
+  }
 
   Future<void> _newProduct() async {
     final product = await showProductDialog(context);
     if (product != null) await widget.fs.addProduct(product);
   }
 
-   Future<void> _sell(Product product) async {
+  Future<void> _sell(Product product) async {
     final result = await showSellPieceDialog(context, product);
     if (result != null) {
       await widget.fs.registerSale(product.id, product.sold, product.revenue, result.$1, result.$2);
@@ -60,6 +67,17 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
 
             final list = _showSoldOut ? soldOut : inStock;
 
+            final brands = all
+                .map((p) => p.brand.trim())
+                .where((b) => b.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
+
+            final filtered = _brandFilter == null
+                ? list
+                : list.where((p) => p.brand.trim() == _brandFilter).toList();
+
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
               child: Column(
@@ -72,7 +90,8 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
                         children: [
                           Text('Vise Versa', style: AppTheme.display(34)),
                           const SizedBox(height: 2),
-                          Text('Estoque e vendas de roupas', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                          Text('Estoque e vendas de roupas',
+                              style: AppTheme.ui(12, color: AppColors.textMuted)),
                         ],
                       ),
                       const Spacer(),
@@ -110,7 +129,14 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
                         ),
                       ),
                       const SizedBox(width: 14),
-                      Expanded(child: _metric('Valor investido', money(all.fold<double>(0, (s, p) => s + p.invested)), AppColors.textPrimary, Icons.shopping_bag_outlined)),
+                      Expanded(
+                        child: _metric(
+                          'Valor investido',
+                          money(all.fold<double>(0, (s, p) => s + p.invested)),
+                          AppColors.textPrimary,
+                          Icons.shopping_bag_outlined,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -128,11 +154,25 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
                   const SizedBox(height: 22),
                   Row(
                     children: [
-                      _tab('Em estoque', '${inStock.length}', !_showSoldOut, () => setState(() => _showSoldOut = false)),
+                      _tab('Em estoque', '${inStock.length}', !_showSoldOut,
+                          () => setState(() => _showSoldOut = false)),
                       const SizedBox(width: 10),
-                      _tab('Vendidas', '${soldOut.length}', _showSoldOut, () => setState(() => _showSoldOut = true)),
+                      _tab('Vendidas', '${soldOut.length}', _showSoldOut,
+                          () => setState(() => _showSoldOut = true)),
                     ],
                   ),
+                  if (brands.length > 1) ...[
+                    const SizedBox(height: 14),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _brandTab('Todas', null),
+                          ...brands.map((b) => _brandTab(b, b)),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   if (snap.connectionState == ConnectionState.waiting)
                     const Padding(
@@ -145,7 +185,7 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
                         ),
                       ),
                     )
-                  else if (list.isEmpty)
+                  else if (filtered.isEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 60),
                       decoration: BoxDecoration(
@@ -169,7 +209,9 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
                         return Wrap(
                           spacing: gap,
                           runSpacing: gap,
-                          children: list.map((p) => SizedBox(width: width, child: _productCard(p))).toList(),
+                          children: filtered
+                              .map((p) => SizedBox(width: width, child: _productCard(p)))
+                              .toList(),
                         );
                       },
                     ),
@@ -219,10 +261,7 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
                   children: [
                     Text(p.name, style: AppTheme.ui(16, weight: FontWeight.w500)),
                     const SizedBox(height: 4),
-                    Text(
-                      '${type.name} · comprado em ${fullDate(p.purchaseDate)}',
-                      style: AppTheme.ui(11, color: AppColors.textMuted),
-                    ),
+                    Text(type.name, style: AppTheme.ui(11, color: AppColors.textMuted)),
                   ],
                 ),
               ),
@@ -295,8 +334,17 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
               if (!p.soldOut)
                 _smallButton('Vender', Icons.sell_outlined, AppColors.income, () => _sell(p))
               else
-                _smallButton('Reabrir', Icons.undo, AppColors.textSecondary, () => widget.fs.reopenProduct(p.id)),
+                _smallButton('Reabrir', Icons.undo, AppColors.textSecondary,
+                    () => widget.fs.reopenProduct(p.id)),
               const Spacer(),
+              InkWell(
+                onTap: () => _editProduct(p),
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(7),
+                  child: Icon(Icons.edit_outlined, size: 16, color: AppColors.textMuted),
+                ),
+              ),
               InkWell(
                 onTap: () => widget.fs.deleteProduct(p.id),
                 customBorder: const CircleBorder(),
@@ -341,6 +389,38 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
             const SizedBox(width: 8),
             Text(count, style: AppTheme.uiMoney(12, color: AppColors.textMuted)),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _brandTab(String label, String? value) {
+    final selected = _brandFilter == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: () => setState(() => _brandFilter = value),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accentSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected ? AppColors.accent : AppColors.border,
+              width: selected ? 1 : 0.5,
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTheme.ui(
+              12,
+              color: selected ? AppColors.accent : AppColors.textMuted,
+              weight: selected ? FontWeight.w500 : FontWeight.w400,
+            ),
+          ),
         ),
       ),
     );

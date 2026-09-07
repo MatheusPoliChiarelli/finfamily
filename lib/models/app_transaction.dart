@@ -15,8 +15,8 @@ class AppTransaction {
   final String? recurringId;
   final DateTime? createdAt;
   final String? carId;
-  final String? newCarBrand;
   final String? carCostType;
+  final String? newCarBrand;
   final String? newCarModel;
   final String? newCarYear;
   final bool isCarSale;
@@ -27,7 +27,8 @@ class AppTransaction {
   final String? fashionModel;
   final String? fashionType;
   final double? fashionSalePrice;
-    final bool isTransfer;
+  final String? restockProductId;
+  final bool isTransferFlag;
 
   const AppTransaction({
     required this.id,
@@ -44,8 +45,8 @@ class AppTransaction {
     this.recurringId,
     this.createdAt,
     this.carId,
-    this.newCarBrand,
     this.carCostType,
+    this.newCarBrand,
     this.newCarModel,
     this.newCarYear,
     this.isCarSale = false,
@@ -56,9 +57,15 @@ class AppTransaction {
     this.fashionModel,
     this.fashionType,
     this.fashionSalePrice,
-        this.isTransfer = false,
-
+    this.restockProductId,
+    this.isTransferFlag = false,
   });
+
+  bool get isTransfer =>
+      isTransferFlag ||
+      categoryId.startsWith('transfer_') ||
+      categoryId == 'motoboy' ||
+      categoryId == 'correios';
 
   bool get isRecurring => recurringId != null;
 
@@ -81,7 +88,7 @@ class AppTransaction {
       recurringId: d['recurringId'] as String?,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
       carId: d['carId'] as String?,
-      isTransfer: d['isTransfer'] as bool? ?? false,
+      isTransferFlag: d['isTransfer'] as bool? ?? false,
     );
   }
 
@@ -99,6 +106,6 @@ class AppTransaction {
         'recurringId': recurringId,
         'createdAt': FieldValue.serverTimestamp(),
         'carId': carId,
-        'isTransfer': isTransfer,
+        'isTransfer': isTransferFlag,
       };
 }

@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../widgets/car_dialogs.dart';
 import 'package:flutter/services.dart';
+import '../widgets/edit_dialogs.dart';
 
 class CarsScreen extends StatefulWidget {
   const CarsScreen({super.key, required this.fs});
@@ -20,6 +21,12 @@ class CarsScreen extends StatefulWidget {
 class _CarsScreenState extends State<CarsScreen> {
   bool _showSold = false;
   final _expanded = <String>{};
+
+
+  Future<void> _editCar(Car car) async {
+    final data = await showEditCarDialog(context, car);
+    if (data != null) await widget.fs.updateCar(car.id, data);
+  }
 
   Future<void> _newCar() async {
     final car = await showCarDialog(context);
@@ -361,6 +368,14 @@ class _CarsScreenState extends State<CarsScreen> {
               ] else
                 _smallButton('Reabrir', Icons.undo, AppColors.textSecondary, () => widget.fs.reopenCar(car.id)),
               const SizedBox(width: 8),
+              InkWell(
+                onTap: () => _editCar(car),
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(7),
+                  child: Icon(Icons.edit_outlined, size: 16, color: AppColors.textMuted),
+                ),
+              ),
               InkWell(
                 onTap: () => widget.fs.deleteCar(car.id),
                 customBorder: const CircleBorder(),

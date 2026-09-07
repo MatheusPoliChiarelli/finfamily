@@ -14,6 +14,7 @@ import '../utils/currency_input_formatter.dart';
 import '../utils/format.dart';
 
 const _newId = '__new__';
+const _undefinedId = '__undefined__';
 
 Future<AppTransaction?> showTransactionDialog(
   BuildContext context,
@@ -64,14 +65,17 @@ class _TransactionDialogState extends State<_TransactionDialog> {
 
   final _amountFocus = FocusNode();
   final _dialogFocus = FocusNode();
+  final _quantityFocus = FocusNode();
 
-  int _categoryIndex = 0;
-  bool _categoryMode = true;
+  String _step = 'category';
+  int _listIndex = 0;
 
   late Category _category;
   late String _bankId;
   String? _carId;
   String? _productId;
+  String? _brandChoice;
+  String? _modelChoice;
   String _costType = 'cautelar';
   String _pieceType = 'vestido';
   String? _incomeKind;
@@ -83,7 +87,10 @@ class _TransactionDialogState extends State<_TransactionDialog> {
           ...Categories.transfersFor(widget.bankId, widget.isIncome),
       ];
 
-  bool get _isTransfer => Categories.isTransfer(_category.id);
+  bool get _isTransfer =>
+      Categories.isTransfer(_category.id) ||
+      _category.id == 'motoboy' ||
+      _category.id == 'correios';
 
   Color get _accent => widget.isIncome ? AppColors.income : AppColors.expense;
 
@@ -97,11 +104,47 @@ class _TransactionDialogState extends State<_TransactionDialog> {
 
   bool get _isFashionExpense => !widget.isIncome && _isViseVersa;
   bool get _isFashionIncome => widget.isIncome && _isViseVersa;
+  bool get _isUndefinedPiece => _isFashionIncome && _productId == _undefinedId;
+
+  List<String> get _existingBrands {
+    final set = <String>{};
+    for (final p in widget.products) {
+      if (p.brand.trim().isNotEmpty) set.add(p.brand.trim());
+    }
+    return set.toList()..sort();
+  }
+
+  List<String> get _modelsOfBrand {
+    if (_brandChoice == null || _brandChoice == _newId) return [];
+    final set = <String>{};
+    for (final p in widget.products) {
+      if (p.brand.trim() == _brandChoice && p.model.trim().isNotEmpty) {
+        set.add(p.model.trim());
+      }
+    }
+    return set.toList()..sort();
+  }
+
+  bool get _isNewBrand => _brandChoice == _newId;
+  bool get _isNewModel => _modelChoice == _newId;
+
+  String get _finalBrand => _isNewBrand ? _brand.text.trim() : (_brandChoice ?? '');
+  String get _finalModel => _isNewModel ? _model.text.trim() : (_modelChoice ?? '');
+
+  Product? get _matchedProduct {
+    if (_finalBrand.isEmpty || _finalModel.isEmpty) return null;
+    return widget.products
+        .where((p) => p.brand.trim() == _finalBrand && p.model.trim() == _finalModel)
+        .firstOrNull;
+  }
+
+  bool get _isRestock => _isFashionExpense && _matchedProduct != null;
 
   List<Product> get _availableProducts => widget.products.where((p) => !p.soldOut).toList();
 
-  Product? get _selectedProduct =>
-      _productId == null ? null : widget.products.where((p) => p.id == _productId).firstOrNull;
+  Product? get _selectedProduct => (_productId == null || _productId == _undefinedId)
+      ? null
+      : widget.products.where((p) => p.id == _productId).firstOrNull;
 
   bool get _needsFreeText {
     if (_isTransfer) return false;
@@ -112,12 +155,142 @@ class _TransactionDialogState extends State<_TransactionDialog> {
 
   int get _qty => int.tryParse(_quantity.text) ?? 0;
 
+  List<CarCostType> get _costTypes =>
+      CarCostTypes.all.where((t) => t.id != 'compra').toList();
+
+  List<String> get _stepFlow {
+    if (_isFashionExpense) {
+      return ['category', 'brand', 'model', if (!_isRestock) 'pieceType', 'quantity', 'amount'];
+    }
+    if (_isFashionIncome) {
+      return ['category', 'product', 'quantity', 'amount'];
+    }
+    if (_isCarExpense) {
+      return ['category', 'car', if (!_isNewCar && _carId != null) 'costType', 'amount'];
+    }
+    return ['category', 'amount'];
+  }
+
+  int get _currentListLength {
+    switch (_step) {
+      case 'category':
+        return _options.length;
+      case 'brand':
+        return _existingBrands.length + 1;
+      case 'model':
+        return _modelsOfBrand.length + 1;
+      case 'pieceType':
+        return PieceTypes.all.length;
+      case 'product':
+        return _availableProducts.length + 1;
+      case 'car':
+        return widget.activeCars.length + 1;
+      case 'costType':
+        return _costTypes.length;
+      default:
+        return 0;
+    }
+  }
+
+  void _applyListIndex() {
+    switch (_step) {
+      case 'category':
+        _category = _options[_listIndex];
+        _carId = null;
+        _productId = null;
+        _brandChoice = null;
+        _modelChoice = null;
+        _incomeKind = null;
+        break;
+      case 'brand':
+        _brandChoice = _listIndex == 0 ? _newId : _existingBrands[_listIndex - 1];
+        _modelChoice = null;
+        break;
+      case 'model':
+        _modelChoice = _listIndex == 0 ? _newId : _modelsOfBrand[_listIndex - 1];
+        break;
+      case 'pieceType':
+        _pieceType = PieceTypes.all[_listIndex].id;
+        break;
+      case 'product':
+        _productId = _listIndex == 0 ? _undefinedId : _availableProducts[_listIndex - 1].id;
+        break;
+      case 'car':
+        _carId = _listIndex == 0 ? _newId : widget.activeCars[_listIndex - 1].id;
+        break;
+      case 'costType':
+        _costType = _costTypes[_listIndex].id;
+        break;
+    }
+  }
+
+  void _move(int delta) {
+    final length = _currentListLength;
+    if (length == 0) return;
+    setState(() {
+      _listIndex = (_listIndex + delta).clamp(0, length - 1);
+      _applyListIndex();
+    });
+  }
+
+  void _nextStep() {
+    if (_currentListLength > 0) _applyListIndex();
+
+    final flow = _stepFlow;
+    final current = flow.indexOf(_step);
+
+    if (current == -1 || current >= flow.length - 1) {
+      _save();
+      return;
+    }
+
+    final next = flow[current + 1];
+
+    setState(() {
+      _step = next;
+      _listIndex = 0;
+      if (next != 'amount') _applyListIndex();
+    });
+
+    if (next == 'amount') {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _amountFocus.requestFocus());
+    } else if (next == 'quantity') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _quantityFocus.requestFocus();
+        _quantity.selection = TextSelection(baseOffset: 0, extentOffset: _quantity.text.length);
+      });
+    }
+  }
+
+  bool get _gridStep =>
+      _step == 'category' || _step == 'pieceType' || _step == 'costType' ||
+      _step == 'brand' || _step == 'model';
+
+  void _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+      _nextStep();
+      return;
+    }
+    if (_step == 'amount' || _step == 'quantity') return;
+
+    final vertical = _gridStep ? 3 : 1;
+
+    if (key == LogicalKeyboardKey.arrowRight) _move(1);
+    if (key == LogicalKeyboardKey.arrowLeft) _move(-1);
+    if (key == LogicalKeyboardKey.arrowDown) _move(vertical);
+    if (key == LogicalKeyboardKey.arrowUp) _move(-vertical);
+  }
+
   @override
   void initState() {
     super.initState();
     _category = _options.first;
     _bankId = widget.bankId;
-    _categoryIndex = 0;
+    _listIndex = 0;
     WidgetsBinding.instance.addPostFrameCallback((_) => _dialogFocus.requestFocus());
   }
 
@@ -131,49 +304,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     _quantity.dispose();
     _amountFocus.dispose();
     _dialogFocus.dispose();
+    _quantityFocus.dispose();
     super.dispose();
-  }
-
-  void _moveCategory(int delta) {
-    if (!_categoryMode) return;
-    final next = (_categoryIndex + delta).clamp(0, _options.length - 1);
-    setState(() {
-      _categoryIndex = next;
-      _category = _options[next];
-      _carId = null;
-      _productId = null;
-      _incomeKind = null;
-    });
-  }
-
-  void _confirmCategory() {
-    setState(() => _categoryMode = false);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _amountFocus.requestFocus());
-  }
-
-  void _onEnter() {
-    if (_categoryMode) {
-      _confirmCategory();
-      return;
-    }
-    _save();
-  }
-
-  void _onKey(KeyEvent event) {
-    if (event is! KeyDownEvent) return;
-
-    final key = event.logicalKey;
-
-    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
-      _onEnter();
-      return;
-    }
-    if (!_categoryMode) return;
-
-    if (key == LogicalKeyboardKey.arrowRight) _moveCategory(1);
-    if (key == LogicalKeyboardKey.arrowLeft) _moveCategory(-1);
-    if (key == LogicalKeyboardKey.arrowDown) _moveCategory(3);
-    if (key == LogicalKeyboardKey.arrowUp) _moveCategory(-3);
   }
 
   String _resolveDescription() {
@@ -188,11 +320,11 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       return 'Venda do ${car.name}';
     }
     if (_isFashionExpense) {
-      return 'Compra de $_qty ${_brand.text.trim()} ${_model.text.trim()}'.trim();
+      return 'Compra de $_qty $_finalBrand $_finalModel'.trim();
     }
     if (_isFashionIncome) {
-      final p = _selectedProduct!;
-      return 'Venda de $_qty ${p.name}';
+      if (_isUndefinedPiece) return 'Venda Vise Versa';
+      return 'Venda de $_qty ${_selectedProduct!.name}';
     }
     final typed = _description.text.trim();
     return typed.isEmpty ? _category.name : typed;
@@ -211,15 +343,15 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       setState(() => _error = 'Escolha a peça vendida');
       return;
     }
-    if ((_isFashionExpense || _isFashionIncome) && _qty <= 0) {
+    if ((_isFashionExpense || (_isFashionIncome && !_isUndefinedPiece)) && _qty <= 0) {
       setState(() => _error = 'Informe a quantidade');
       return;
     }
-    if (_isFashionIncome && _qty > (_selectedProduct?.stock ?? 0)) {
+    if (_isFashionIncome && !_isUndefinedPiece && _qty > (_selectedProduct?.stock ?? 0)) {
       setState(() => _error = 'Só há ${_selectedProduct!.stock} em estoque');
       return;
     }
-    if (_isFashionExpense && (_brand.text.trim().isEmpty || _model.text.trim().isEmpty)) {
+    if (_isFashionExpense && (_finalBrand.isEmpty || _finalModel.isEmpty)) {
       setState(() => _error = 'Informe marca e modelo');
       return;
     }
@@ -263,12 +395,13 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         newCarModel: _isNewCar ? _model.text.trim() : null,
         newCarYear: _isNewCar ? _year.text.trim() : null,
         fashionKind: _isFashionExpense ? 'compra' : (_isFashionIncome ? 'venda' : null),
-        productId: _isFashionIncome ? _productId : null,
-        quantity: _isFashionExpense || _isFashionIncome ? _qty : null,
-        fashionBrand: _isFashionExpense ? _brand.text.trim() : null,
-        fashionModel: _isFashionExpense ? _model.text.trim() : null,
-        fashionType: _isFashionExpense ? _pieceType : null,
-        isTransfer: _isTransfer,
+        productId: _isFashionIncome && !_isUndefinedPiece ? _productId : null,
+        quantity: _isFashionExpense || (_isFashionIncome && !_isUndefinedPiece) ? _qty : null,
+        fashionBrand: _isFashionExpense && !_isRestock ? _finalBrand : null,
+        fashionModel: _isFashionExpense && !_isRestock ? _finalModel : null,
+        fashionType: _isFashionExpense && !_isRestock ? _pieceType : null,
+        restockProductId: _isRestock ? _matchedProduct!.id : null,
+        isTransferFlag: _isTransfer,
         createdBy: user.uid,
         createdByName: user.displayName ?? 'Alguém',
       ),
@@ -276,7 +409,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   }
 
   bool get _showAmount {
-    if (_isFashionIncome) return _selectedProduct != null;
+    if (_isFashionIncome) return _selectedProduct != null || _isUndefinedPiece;
     if (!_isCarIncome) return true;
     if (_incomeKind == 'comissao') return true;
     if (_isCarSale && _carId != null) return true;
@@ -288,6 +421,29 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     if (_isFashionExpense) return 'Valor total pago';
     if (_isFashionIncome) return 'Valor total recebido';
     return 'Valor';
+  }
+
+  String get _stepHint {
+    switch (_step) {
+      case 'category':
+        return 'setas navegam, enter avança';
+      case 'brand':
+        return 'escolha a marca, enter avança';
+      case 'model':
+        return 'escolha o modelo, enter avança';
+      case 'pieceType':
+        return 'escolha o tipo, enter avança';
+      case 'product':
+        return 'escolha a peça vendida, enter avança';
+      case 'car':
+        return 'escolha o carro, enter avança';
+      case 'costType':
+        return 'escolha o tipo do custo, enter avança';
+      case 'quantity':
+        return 'digite e enter avança';
+      default:
+        return '';
+    }
   }
 
   @override
@@ -309,27 +465,18 @@ class _TransactionDialogState extends State<_TransactionDialog> {
               children: [
                 _headerRow(),
                 const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Text('Categoria', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                    const SizedBox(width: 8),
-                    if (_categoryMode)
-                      Text(
-                        'setas para navegar, enter para confirmar',
-                        style: AppTheme.ui(10, color: AppColors.accent),
-                      ),
-                  ],
-                ),
+                _label('Categoria', active: _step == 'category'),
                 const SizedBox(height: 10),
                 _grid(_options.map((c) => _categoryChip(c)).toList()),
                 if (_isCarIncome) ...[
                   const SizedBox(height: 22),
-                  Text('Tipo da entrada', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label('Tipo da entrada'),
                   const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
-                        child: _radioTile('Comissão', Icons.handshake_outlined, _incomeKind == 'comissao', () {
+                        child: _radioTile('Comissão', Icons.handshake_outlined,
+                            _incomeKind == 'comissao', () {
                           setState(() {
                             _incomeKind = 'comissao';
                             _carId = null;
@@ -338,7 +485,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: _radioTile('Venda de carro', Icons.sell_outlined, _incomeKind == 'venda', () {
+                        child: _radioTile('Venda de carro', Icons.sell_outlined,
+                            _incomeKind == 'venda', () {
                           setState(() => _incomeKind = 'venda');
                         }),
                       ),
@@ -347,7 +495,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                 ],
                 if (_isCarSale) ...[
                   const SizedBox(height: 22),
-                  Text('Carro vendido', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label('Carro vendido'),
                   const SizedBox(height: 10),
                   if (widget.activeCars.isEmpty)
                     _emptyBox('Nenhum carro ativo no estoque')
@@ -356,112 +504,142 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                 ],
                 if (_isCarExpense) ...[
                   const SizedBox(height: 22),
-                  Text('Carro', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label('Carro', active: _step == 'car'),
                   const SizedBox(height: 10),
                   _newOption('Novo carro', _carId == _newId, () => setState(() => _carId = _newId)),
                   ...widget.activeCars.map(_carOption),
                 ],
                 if (_isNewCar) ...[
                   const SizedBox(height: 18),
-                  Text('Dados do carro', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label('Dados do carro'),
                   const SizedBox(height: 10),
                   _brandModelYear(),
                 ],
                 if (_isCarExpense && !_isNewCar && _carId != null) ...[
                   const SizedBox(height: 22),
-                  Text('Tipo do custo', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label('Tipo do custo', active: _step == 'costType'),
                   const SizedBox(height: 10),
-                  _grid(CarCostTypes.all
-                      .where((t) => t.id != 'compra')
-                      .map((t) => _costChip(t))
-                      .toList()),
+                  _grid(_costTypes.map((t) => _costChip(t)).toList()),
                 ],
                 if (_isFashionExpense) ...[
                   const SizedBox(height: 22),
-                  Text('Dados da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label('Marca', active: _step == 'brand'),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _brand,
-                          style: AppTheme.ui(14),
-                          decoration: const InputDecoration(hintText: 'Marca'),
-                        ),
+                  _grid([
+                    _choiceChip('Outra marca', _brandChoice == _newId, Icons.add_circle_outline, () {
+                      setState(() {
+                        _brandChoice = _newId;
+                        _modelChoice = null;
+                        _step = 'brand';
+                        _listIndex = 0;
+                      });
+                    }),
+                    ..._existingBrands.map(
+                      (b) => _choiceChip(b, _brandChoice == b, Icons.label_outline, () {
+                        setState(() {
+                          _brandChoice = b;
+                          _modelChoice = null;
+                          _step = 'brand';
+                          _listIndex = _existingBrands.indexOf(b) + 1;
+                        });
+                      }),
+                    ),
+                  ]),
+                  if (_isNewBrand) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _brand,
+                      style: AppTheme.ui(14),
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(hintText: 'Nome da marca'),
+                    ),
+                  ],
+                  if (_brandChoice != null) ...[
+                    const SizedBox(height: 20),
+                    _label('Modelo', active: _step == 'model'),
+                    const SizedBox(height: 10),
+                    _grid([
+                      _choiceChip('Outro modelo', _modelChoice == _newId, Icons.add_circle_outline, () {
+                        setState(() {
+                          _modelChoice = _newId;
+                          _step = 'model';
+                          _listIndex = 0;
+                        });
+                      }),
+                      ..._modelsOfBrand.map(
+                        (m) => _choiceChip(m, _modelChoice == m, Icons.style_outlined, () {
+                          setState(() {
+                            _modelChoice = m;
+                            _step = 'model';
+                            _listIndex = _modelsOfBrand.indexOf(m) + 1;
+                          });
+                        }),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _model,
-                          style: AppTheme.ui(14),
-                          decoration: const InputDecoration(hintText: 'Modelo'),
-                        ),
+                    ]),
+                    if (_isNewModel) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _model,
+                        style: AppTheme.ui(14),
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(hintText: 'Nome do modelo'),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 18),
-                  Text('Tipo da peça', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                  const SizedBox(height: 10),
-                  _grid(PieceTypes.all.map((t) => _pieceChip(t)).toList()),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: 140,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text('Quantidade', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _quantity,
-                          style: AppTheme.uiMoney(15),
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(4),
-                          ],
-                          onChanged: (_) => setState(() {}),
-                          decoration: const InputDecoration(hintText: '1'),
-                        ),
-                      ],
+                  ],
+                  if (_isRestock) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentSoft,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.accent, width: 0.5),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.inventory_2_outlined, size: 15, color: AppColors.accent),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Peça já existe, será somada ao card atual',
+                              style: AppTheme.ui(12, color: AppColors.accent),
+                            ),
+                          ),
+                          Text(
+                            '${_matchedProduct!.quantity} compradas',
+                            style: AppTheme.uiMoney(11, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
+                  if (!_isRestock && _brandChoice != null && _modelChoice != null) ...[
+                    const SizedBox(height: 20),
+                    _label('Tipo da peça', active: _step == 'pieceType'),
+                    const SizedBox(height: 10),
+                    _grid(PieceTypes.all.map((t) => _pieceChip(t)).toList()),
+                  ],
+                  const SizedBox(height: 18),
+                  _quantityField(),
                 ],
                 if (_isFashionIncome) ...[
                   const SizedBox(height: 22),
-                  Text('Peça vendida', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label('Peça vendida', active: _step == 'product'),
                   const SizedBox(height: 10),
+                  _undefinedPieceOption(),
+                  const SizedBox(height: 8),
                   if (_availableProducts.isEmpty)
                     _emptyBox('Nenhuma peça em estoque')
                   else
                     ..._availableProducts.map(_productOption),
                   if (_selectedProduct != null) ...[
                     const SizedBox(height: 18),
-                    SizedBox(
-                      width: 140,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text('Quantidade', style: AppTheme.ui(12, color: AppColors.textMuted)),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: _quantity,
-                            style: AppTheme.uiMoney(15),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(4),
-                            ],
-                            onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(hintText: '1'),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _quantityField(),
                   ],
                 ],
                 if (_showAmount) ...[
                   const SizedBox(height: 22),
-                  Text(_amountLabel, style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label(_amountLabel, active: _step == 'amount'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _amount,
@@ -486,7 +664,10 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                       ],
                     ),
                   ],
-                  if (_isFashionIncome && _qty > 0 && parseCurrency(_amount.text) > 0) ...[
+                  if (_isFashionIncome &&
+                      _selectedProduct != null &&
+                      _qty > 0 &&
+                      parseCurrency(_amount.text) > 0) ...[
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -502,7 +683,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                 ],
                 if (_needsFreeText) ...[
                   const SizedBox(height: 22),
-                  Text('Descrição', style: AppTheme.ui(12, color: AppColors.textMuted)),
+                  _label('Descrição'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _description,
@@ -526,6 +707,44 @@ class _TransactionDialogState extends State<_TransactionDialog> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _label(String text, {bool active = false}) {
+    return Row(
+      children: [
+        Text(text, style: AppTheme.ui(12, color: active ? AppColors.accent : AppColors.textMuted)),
+        if (active && _stepHint.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          Text(_stepHint, style: AppTheme.ui(10, color: AppColors.accent)),
+        ],
+      ],
+    );
+  }
+
+  Widget _quantityField() {
+    return SizedBox(
+      width: 140,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _label('Quantidade', active: _step == 'quantity'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _quantity,
+            focusNode: _quantityFocus,
+            style: AppTheme.uiMoney(15),
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(4),
+            ],
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _nextStep(),
+            decoration: const InputDecoration(hintText: '1'),
+          ),
+        ],
       ),
     );
   }
@@ -678,6 +897,26 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     );
   }
 
+  Widget _choiceChip(String label, bool selected, IconData icon, VoidCallback onTap) {
+    return _tile(
+      selected: selected,
+      onTap: onTap,
+      children: [
+        _radio(selected),
+        const SizedBox(width: 7),
+        Icon(icon, size: 14, color: selected ? AppColors.accent : AppColors.textMuted),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: AppTheme.ui(12, color: selected ? AppColors.textPrimary : AppColors.textSecondary),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _radioTile(String label, IconData icon, bool selected, VoidCallback onTap) {
     return _tile(
       selected: selected,
@@ -707,7 +946,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         onTap: onTap,
         height: 46,
         children: [
-          Icon(Icons.add_circle_outline, size: 17, color: selected ? AppColors.accent : AppColors.textMuted),
+          Icon(Icons.add_circle_outline, size: 17,
+              color: selected ? AppColors.accent : AppColors.textMuted),
           const SizedBox(width: 10),
           Text(
             label,
@@ -722,13 +962,44 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     );
   }
 
+  Widget _undefinedPieceOption() {
+    final selected = _productId == _undefinedId;
+    return _tile(
+      selected: selected,
+      onTap: () => setState(() {
+        _productId = _undefinedId;
+        _step = 'product';
+        _listIndex = 0;
+      }),
+      height: 46,
+      children: [
+        _radio(selected),
+        const SizedBox(width: 10),
+        Icon(Icons.help_outline, size: 15,
+            color: selected ? AppColors.accent : AppColors.textMuted),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Peça indefinida',
+            style: AppTheme.ui(13, color: selected ? AppColors.textPrimary : AppColors.textSecondary),
+          ),
+        ),
+        Text('sem baixa no estoque', style: AppTheme.ui(10, color: AppColors.textMuted)),
+      ],
+    );
+  }
+
   Widget _carOption(Car car) {
     final selected = _carId == car.id;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: _tile(
         selected: selected,
-        onTap: () => setState(() => _carId = car.id),
+        onTap: () => setState(() {
+          _carId = car.id;
+          _step = 'car';
+          _listIndex = widget.activeCars.indexWhere((o) => o.id == car.id) + 1;
+        }),
         height: 46,
         children: [
           _radio(selected),
@@ -752,7 +1023,11 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       padding: const EdgeInsets.only(bottom: 8),
       child: _tile(
         selected: selected,
-        onTap: () => setState(() => _productId = p.id),
+        onTap: () => setState(() {
+          _productId = p.id;
+          _step = 'product';
+          _listIndex = _availableProducts.indexWhere((o) => o.id == p.id) + 1;
+        }),
         height: 50,
         children: [
           _radio(selected),
@@ -785,7 +1060,11 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     final selected = _costType == t.id;
     return _tile(
       selected: selected,
-      onTap: () => setState(() => _costType = t.id),
+      onTap: () => setState(() {
+        _costType = t.id;
+        _step = 'costType';
+        _listIndex = _costTypes.indexWhere((o) => o.id == t.id);
+      }),
       children: [
         _radio(selected),
         const SizedBox(width: 7),
@@ -806,7 +1085,11 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     final selected = _pieceType == t.id;
     return _tile(
       selected: selected,
-      onTap: () => setState(() => _pieceType = t.id),
+      onTap: () => setState(() {
+        _pieceType = t.id;
+        _step = 'pieceType';
+        _listIndex = PieceTypes.all.indexWhere((o) => o.id == t.id);
+      }),
       children: [
         _radio(selected),
         const SizedBox(width: 7),
@@ -829,10 +1112,12 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       selected: selected,
       onTap: () => setState(() {
         _category = c;
-        _categoryIndex = _options.indexWhere((o) => o.id == c.id);
-        _categoryMode = false;
+        _listIndex = _options.indexWhere((o) => o.id == c.id);
+        _step = 'category';
         _carId = null;
         _productId = null;
+        _brandChoice = null;
+        _modelChoice = null;
         _incomeKind = null;
       }),
       children: [
