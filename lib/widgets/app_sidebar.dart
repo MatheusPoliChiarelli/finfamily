@@ -56,10 +56,7 @@ class AppSidebar extends StatelessWidget {
           _item('overview', Icons.grid_view_outlined, 'Visão geral'),
           _item('summary', Icons.insights_outlined, 'Resumo do mês'),
           _item('year', Icons.calendar_month_outlined, 'Resumo do ano'),
-          _item('budget', Icons.pie_chart_outline, 'Orçamento'),
-          _item('recurring', Icons.repeat, 'Recorrentes'),
-          _item('fixed', Icons.receipt_long_outlined, 'Contas fixas'),
-                    _item('cars', Icons.directions_car_outlined, 'RobMotors'),
+          _item('cars', Icons.directions_car_outlined, 'RobMotors'),
           _item('fashion', Icons.checkroom_outlined, 'Vise Versa'),
 
           const Spacer(),

@@ -6,16 +6,13 @@ import '../data/categories.dart';
 import '../models/app_transaction.dart';
 import '../models/budget.dart';
 import '../models/car.dart';
-import '../models/fixed_bill.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../widgets/app_header.dart';
 import '../widgets/app_sidebar.dart';
-import '../widgets/budget_dialog.dart';
 import '../widgets/category_chart.dart';
-import '../widgets/fixed_bill_dialog.dart';
 import '../widgets/screen_glow.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_list.dart';
@@ -315,17 +312,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _newFixedBill() async {
-    final bill = await showFixedBillDialog(context);
-    if (bill != null) await _fs!.addFixedBill(bill);
-  }
 
   Future<void> _onSection(String id) async {
-    if (id == 'budget') {
-      final limits = await showBudgetDialog(context, _budget.limits);
-      if (limits != null) await _fs!.saveBudget(_month, limits, _uid);
-      return;
-    }
     setState(() => _section = id);
   }
 
@@ -391,7 +379,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         return switch (_section) {
                           'summary' => _summaryView(transactions, loading),
                           'year' => YearScreen(fs: _fs!, bankId: _bankId, header: _header()),
-                          'fixed' => _fixedView(),
                           'cars' => CarsScreen(fs: _fs!),
                           'fashion' => ViseVersaScreen(fs: _fs!),
                           _ => _overview(transactions, loading),
@@ -724,143 +711,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _fixedView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _header(),
-          const SizedBox(height: 22),
-          StreamBuilder<List<FixedBill>>(
-            stream: _fs!.fixedBills(),
-            builder: (context, snap) {
-              final bills = snap.data ?? const <FixedBill>[];
-              final total = bills.fold<double>(0, (s, b) => s + b.amount);
 
-              final byCategory = <String, double>{};
-              for (final b in bills) {
-                byCategory[b.categoryId] = (byCategory[b.categoryId] ?? 0) + b.amount;
-              }
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: _miniStat('Total mensal', money(total))),
-                      const SizedBox(width: 14),
-                      Expanded(child: _miniStat('Contas cadastradas', '${bills.length}')),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: SizedBox(
-                          height: 46,
-                          child: FilledButton.icon(
-                            onPressed: _newFixedBill,
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Nova conta fixa'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.accent,
-                              foregroundColor: AppColors.onAccent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final narrow = constraints.maxWidth < 900;
-                      final list = _card(
-                        title: 'Contas fixas da casa',
-                        subtitle: 'Referência do custo mensal',
-                        child: snap.connectionState == ConnectionState.waiting
-                            ? _spinner()
-                            : bills.isEmpty
-                                ? Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 40),
-                                    child: Center(
-                                      child: Text(
-                                        'Nenhuma conta fixa cadastrada',
-                                        style: AppTheme.ui(13, color: AppColors.textMuted),
-                                      ),
-                                    ),
-                                  )
-                                : Column(children: bills.map(_fixedBillRow).toList()),
-                      );
-                      final chart = _card(
-                        title: 'Composição por categoria',
-                        subtitle: 'Peso de cada categoria no custo fixo',
-                        child: CategoryChart(spent: byCategory),
-                      );
-                      if (narrow) {
-                        return Column(children: [list, const SizedBox(height: 14), chart]);
-                      }
-                      return IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(child: list),
-                            const SizedBox(width: 14),
-                            Expanded(child: chart),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _fixedBillRow(FixedBill b) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF1F2429), width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceRaised,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(Categories.byId(b.categoryId).icon, size: 17, color: Color(b.categoryColor)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(b.name, style: AppTheme.ui(14)),
-                const SizedBox(height: 3),
-                Text(b.categoryName, style: AppTheme.ui(11, color: AppColors.textMuted)),
-              ],
-            ),
-          ),
-          Text(money(b.amount), style: AppTheme.uiMoney(14, weight: FontWeight.w500)),
-          const SizedBox(width: 10),
-          InkWell(
-            onTap: () => _fs!.deleteFixedBill(b.id),
-            customBorder: const CircleBorder(),
-            child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.delete_outline, size: 16, color: AppColors.textMuted),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _spinner() => const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),

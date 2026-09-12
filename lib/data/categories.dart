@@ -44,13 +44,16 @@ class Categories {
     Category(id: 'vise_versa', name: 'Vise Versa', icon: Icons.checkroom_outlined, color: 0xFFED93B1),
     Category(id: 'correios', name: 'Correios', icon: Icons.local_shipping_outlined, color: 0xFF5DCAA5),
     Category(id: 'investimentos', name: 'Investimentos', icon: Icons.trending_up, color: 0xFF97C459),
-    Category(id: 'cartao_nubank_robson', name: 'Cartão Nubank Robson', icon: Icons.credit_card_outlined, color: 0xFF9B4DFF),
+    Category(id: 'cartao_nubank_robson', name: 'Fatura Nubank Robson', icon: Icons.credit_card_outlined, color: 0xFF9B4DFF),
     Category(id: 'internet_joao', name: 'Internet João', icon: Icons.wifi_outlined, color: 0xFF85B7EB),
     Category(id: 'energia_joao', name: 'Energia João', icon: Icons.bolt_outlined, color: 0xFF85B7EB),
     Category(id: 'seguro_carro_joao', name: 'Seguro Carro João', icon: Icons.shield_outlined, color: 0xFF85B7EB),
     Category(id: 'transporte_nena', name: 'Transporte Nena', icon: Icons.directions_bus_outlined, color: 0xFFF0997B),
     Category(id: 'despesas_carro_joao', name: 'Despesas Carro João', icon: Icons.directions_car_outlined, color: 0xFF85B7EB),
     Category(id: 'pedagio', name: 'Pedágio', icon: Icons.toll_outlined, color: 0xFFB4B2A9),
+    Category(id: 'alarme', name: 'Alarme', icon: Icons.security_outlined, color: 0xFF7F77DD),
+    Category(id: 'fatura_nubank_rose', name: 'Fatura Nubank Rose', icon: Icons.credit_card_outlined, color: 0xFF9B4DFF),
+    Category(id: 'cartao_rosangela', name: 'Cartão Rosângela', icon: Icons.credit_card_outlined, color: 0xFFED93B1),
     Category(id: 'outros', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780),
 
 
@@ -64,6 +67,7 @@ class Categories {
     Category(id: 'motoboy', name: 'Motoboy', icon: Icons.two_wheeler_outlined, color: 0xFFEF9F27, isIncome: true),
     Category(id: 'correios', name: 'Correios', icon: Icons.local_shipping_outlined, color: 0xFF5DCAA5, isIncome: true),
     Category(id: 'investimentos', name: 'Investimentos', icon: Icons.trending_up, color: 0xFF97C459, isIncome: true),
+    Category(id: 'cartao_rosangela', name: 'Cartão Rosângela', icon: Icons.credit_card_outlined, color: 0xFFED93B1, isIncome: true),
     Category(id: 'outras_receitas', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780, isIncome: true),
   ];
 

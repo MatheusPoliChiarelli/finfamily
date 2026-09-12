@@ -90,7 +90,10 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   bool get _isTransfer =>
       Categories.isTransfer(_category.id) ||
       _category.id == 'motoboy' ||
-      _category.id == 'correios';
+      _category.id == 'correios' ||
+      _category.id == 'cartao_rosangela';
+
+  bool get _fashionNoStock => _isFashionIncome && widget.bankId == Banks.itau.id;
 
   Color get _accent => widget.isIncome ? AppColors.income : AppColors.expense;
 
@@ -104,7 +107,23 @@ class _TransactionDialogState extends State<_TransactionDialog> {
 
   bool get _isFashionExpense => !widget.isIncome && _isViseVersa;
   bool get _isFashionIncome => widget.isIncome && _isViseVersa;
-  bool get _isUndefinedPiece => _isFashionIncome && _productId == _undefinedId;
+  bool get _isUndefinedPiece => _isFashionIncome && _saleUndefined;
+
+  List<String> get _saleBrands {
+    final set = <String>{};
+    for (final p in _availableProducts) {
+      if (p.brand.trim().isNotEmpty) set.add(p.brand.trim());
+    }
+    return set.toList()..sort();
+  }
+
+  List<Product> get _saleModelsOfBrand {
+    if (_brandChoice == null || _brandChoice == _undefinedId) return [];
+    return _availableProducts.where((p) => p.brand.trim() == _brandChoice).toList()
+      ..sort((a, b) => a.model.compareTo(b.model));
+  }
+
+  bool get _saleUndefined => _isFashionIncome && _brandChoice == _undefinedId;
 
   List<String> get _existingBrands {
     final set = <String>{};
@@ -163,7 +182,10 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       return ['category', 'brand', 'model', if (!_isRestock) 'pieceType', 'quantity', 'amount'];
     }
     if (_isFashionIncome) {
-      return ['category', 'product', 'quantity', 'amount'];
+      if (_fashionNoStock) return ['category', 'amount'];
+      return _saleUndefined
+          ? ['category', 'saleBrand', 'amount']
+          : ['category', 'saleBrand', 'saleModel', 'quantity', 'amount'];
     }
     if (_isCarExpense) {
       return ['category', 'car', if (!_isNewCar && _carId != null) 'costType', 'amount'];
@@ -187,6 +209,10 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         return widget.activeCars.length + 1;
       case 'costType':
         return _costTypes.length;
+      case 'saleBrand':
+        return _saleBrands.length + 1;
+      case 'saleModel':
+        return _saleModelsOfBrand.length;
       default:
         return 0;
     }
@@ -220,6 +246,15 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         break;
       case 'costType':
         _costType = _costTypes[_listIndex].id;
+        break;
+      case 'saleBrand':
+        _brandChoice = _listIndex == 0 ? _undefinedId : _saleBrands[_listIndex - 1];
+        _productId = null;
+        break;
+      case 'saleModel':
+        if (_saleModelsOfBrand.isNotEmpty) {
+          _productId = _saleModelsOfBrand[_listIndex].id;
+        }
         break;
     }
   }
@@ -262,9 +297,11 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     }
   }
 
+
   bool get _gridStep =>
       _step == 'category' || _step == 'pieceType' || _step == 'costType' ||
-      _step == 'brand' || _step == 'model';
+      _step == 'brand' || _step == 'model' ||
+      _step == 'saleBrand' || _step == 'saleModel';
 
   void _onKey(KeyEvent event) {
     if (event is! KeyDownEvent) return;
@@ -323,7 +360,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       return 'Compra de $_qty $_finalBrand $_finalModel'.trim();
     }
     if (_isFashionIncome) {
-      if (_isUndefinedPiece) return 'Venda Vise Versa';
+      if (_fashionNoStock || _isUndefinedPiece) return 'Venda Vise Versa';
       return 'Venda de $_qty ${_selectedProduct!.name}';
     }
     final typed = _description.text.trim();
@@ -339,15 +376,18 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       setState(() => _error = 'Escolha o carro vendido');
       return;
     }
-    if (_isFashionIncome && _productId == null) {
+    if (_isFashionIncome && !_fashionNoStock && _productId == null) {
       setState(() => _error = 'Escolha a peça vendida');
       return;
     }
-    if ((_isFashionExpense || (_isFashionIncome && !_isUndefinedPiece)) && _qty <= 0) {
+    if ((_isFashionExpense || (_isFashionIncome && !_fashionNoStock && !_isUndefinedPiece)) && _qty <= 0) {
       setState(() => _error = 'Informe a quantidade');
       return;
     }
-    if (_isFashionIncome && !_isUndefinedPiece && _qty > (_selectedProduct?.stock ?? 0)) {
+    if (_isFashionIncome &&
+        !_fashionNoStock &&
+        !_isUndefinedPiece &&
+        _qty > (_selectedProduct?.stock ?? 0)) {
       setState(() => _error = 'Só há ${_selectedProduct!.stock} em estoque');
       return;
     }
@@ -395,8 +435,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         newCarModel: _isNewCar ? _model.text.trim() : null,
         newCarYear: _isNewCar ? _year.text.trim() : null,
         fashionKind: _isFashionExpense ? 'compra' : (_isFashionIncome ? 'venda' : null),
-        productId: _isFashionIncome && !_isUndefinedPiece ? _productId : null,
-        quantity: _isFashionExpense || (_isFashionIncome && !_isUndefinedPiece) ? _qty : null,
+        productId: _isFashionIncome && !_fashionNoStock && !_isUndefinedPiece ? _productId : null,
+        quantity: _isFashionExpense || (_isFashionIncome && !_fashionNoStock && !_isUndefinedPiece) ? _qty : null,
         fashionBrand: _isFashionExpense && !_isRestock ? _finalBrand : null,
         fashionModel: _isFashionExpense && !_isRestock ? _finalModel : null,
         fashionType: _isFashionExpense && !_isRestock ? _pieceType : null,
@@ -409,7 +449,9 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   }
 
   bool get _showAmount {
-    if (_isFashionIncome) return _selectedProduct != null || _isUndefinedPiece;
+    if (_isFashionIncome) {
+      return _fashionNoStock || _saleUndefined || _selectedProduct != null;
+    }
     if (!_isCarIncome) return true;
     if (_incomeKind == 'comissao') return true;
     if (_isCarSale && _carId != null) return true;
@@ -441,6 +483,10 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         return 'escolha o tipo do custo, enter avança';
       case 'quantity':
         return 'digite e enter avança';
+      case 'saleBrand':
+        return 'escolha a marca, enter avança';
+      case 'saleModel':
+        return 'escolha o modelo, enter avança';
       default:
         return '';
     }
@@ -622,20 +668,66 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                   const SizedBox(height: 18),
                   _quantityField(),
                 ],
-                if (_isFashionIncome) ...[
+                if (_isFashionIncome && !_fashionNoStock) ...[
                   const SizedBox(height: 22),
-                  _label('Peça vendida', active: _step == 'product'),
+                  _label('Marca', active: _step == 'saleBrand'),
                   const SizedBox(height: 10),
-                  _undefinedPieceOption(),
-                  const SizedBox(height: 8),
-                  if (_availableProducts.isEmpty)
-                    _emptyBox('Nenhuma peça em estoque')
-                  else
-                    ..._availableProducts.map(_productOption),
+                  _grid([
+                    _choiceChip('Peça indefinida', _brandChoice == _undefinedId, Icons.help_outline, () {
+                      setState(() {
+                        _brandChoice = _undefinedId;
+                        _productId = null;
+                        _step = 'saleBrand';
+                        _listIndex = 0;
+                      });
+                    }),
+                    ..._saleBrands.map(
+                      (b) => _choiceChip(b, _brandChoice == b, Icons.label_outline, () {
+                        setState(() {
+                          _brandChoice = b;
+                          _productId = null;
+                          _step = 'saleBrand';
+                          _listIndex = _saleBrands.indexOf(b) + 1;
+                        });
+                      }),
+                    ),
+                  ]),
+                  if (_brandChoice != null && !_saleUndefined) ...[
+                    const SizedBox(height: 20),
+                    _label('Modelo', active: _step == 'saleModel'),
+                    const SizedBox(height: 10),
+                    if (_saleModelsOfBrand.isEmpty)
+                      _emptyBox('Nenhuma peça dessa marca em estoque')
+                    else
+                      ..._saleModelsOfBrand.map(_productOption),
+                  ],
                   if (_selectedProduct != null) ...[
                     const SizedBox(height: 18),
                     _quantityField(),
                   ],
+                ],
+                if (_fashionNoStock) ...[
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border, width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, size: 15, color: AppColors.textMuted),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Recebimento de cartão, sem baixa no estoque',
+                            style: AppTheme.ui(12, color: AppColors.textMuted),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
                 if (_showAmount) ...[
                   const SizedBox(height: 22),

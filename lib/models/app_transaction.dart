@@ -65,8 +65,9 @@ class AppTransaction {
       isTransferFlag ||
       categoryId.startsWith('transfer_') ||
       categoryId == 'motoboy' ||
-      categoryId == 'correios';
-
+      categoryId == 'correios' ||
+      categoryId == 'cartao_rosangela';
+      
   bool get isRecurring => recurringId != null;
 
   DateTime get sortKey => createdAt ?? date;

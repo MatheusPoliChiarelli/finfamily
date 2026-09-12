@@ -163,14 +163,21 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
                   ),
                   if (brands.length > 1) ...[
                     const SizedBox(height: 14),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _brandTab('Todas', null),
-                          ...brands.map((b) => _brandTab(b, b)),
-                        ],
-                      ),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SizedBox(
+                          width: constraints.maxWidth,
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.start,
+                            children: [
+                              _brandTab('Todas', null),
+                              ...brands.map((b) => _brandTab(b, b)),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -396,8 +403,7 @@ class _ViseVersaScreenState extends State<ViseVersaScreen> {
 
   Widget _brandTab(String label, String? value) {
     final selected = _brandFilter == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
+    return IntrinsicWidth(
       child: InkWell(
         onTap: () => setState(() => _brandFilter = value),
         borderRadius: BorderRadius.circular(18),
