@@ -20,6 +20,9 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _budgets => _house.collection('budgets');
   CollectionReference<Map<String, dynamic>> get _fixedBills => _house.collection('fixedBills');
 
+  Future<void> updateTransaction(String id, Map<String, dynamic> data) =>
+      _transactions.doc(id).update(data);
+
   Stream<List<AppTransaction>> transactionsOfMonth(DateTime month) {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 1);

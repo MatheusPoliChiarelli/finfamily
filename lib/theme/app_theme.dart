@@ -25,16 +25,20 @@ class AppColors {
 class AppTheme {
   static const money = <FontFeature>[FontFeature.tabularFigures()];
 
-  static TextStyle display(double size, {Color? color}) => GoogleFonts.instrumentSerif(
+  static TextStyle display(double size, {Color? color}) => GoogleFonts.fraunces(
         fontSize: size,
         color: color ?? AppColors.textPrimary,
-        height: 1.1,
+        fontWeight: FontWeight.w600,
+        height: 1.05,
+        letterSpacing: -0.5,
       );
 
-  static TextStyle displayMoney(double size, {Color? color}) => GoogleFonts.instrumentSerif(
+  static TextStyle displayMoney(double size, {Color? color}) => GoogleFonts.fraunces(
         fontSize: size,
         color: color ?? AppColors.textPrimary,
-        height: 1.1,
+        fontWeight: FontWeight.w600,
+        height: 1.05,
+        letterSpacing: -0.5,
         fontFeatures: money,
       );
 

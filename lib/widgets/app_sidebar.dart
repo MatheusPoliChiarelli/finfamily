@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-
 import '../theme/app_theme.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'password_dialog.dart';
 
 class AppSidebar extends StatelessWidget {
   const AppSidebar({
     super.key,
     required this.selected,
     required this.onSelect,
+    required this.onSignOut,
   });
 
   final String selected;
   final ValueChanged<String> onSelect;
+  final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -60,15 +63,96 @@ class AppSidebar extends StatelessWidget {
           _item('fashion', Icons.checkroom_outlined, 'Vise Versa'),
 
           const Spacer(),
+          const Divider(color: AppColors.border, height: 1),
           Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'versão 0.1',
-              style: AppTheme.ui(11, color: AppColors.textMuted),
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+            child: _userTile(context),
           ),
         ],
       ),
+    );
+  }
+
+
+    Widget _userTile(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final name = user?.displayName ?? 'Você';
+    final email = user?.email ?? '';
+
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final initials = parts.isEmpty
+        ? '?'
+        : parts.length == 1
+            ? parts.first.substring(0, 1).toUpperCase()
+            : (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.accentSoft,
+            border: Border.all(color: AppColors.borderAccent, width: 0.5),
+          ),
+          child: Text(
+            initials,
+            style: AppTheme.ui(12, color: AppColors.accent, weight: FontWeight.w500),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            name,
+            overflow: TextOverflow.ellipsis,
+            style: AppTheme.ui(13),
+          ),
+        ),
+        PopupMenuButton<String>(
+          offset: const Offset(0, -100),
+          padding: EdgeInsets.zero,
+          splashRadius: 18,
+          color: AppColors.surfaceRaised,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppColors.border, width: 0.5),
+          ),
+          onSelected: (value) {
+            if (value == 'password') showPasswordDialog(context);
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem<String>(
+              enabled: false,
+              child: Text(email, style: AppTheme.ui(11, color: AppColors.textMuted)),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem<String>(
+              value: 'password',
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_outline, size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 10),
+                  Text('Alterar senha', style: AppTheme.ui(13)),
+                ],
+              ),
+            ),
+          ],
+          child: const Padding(
+            padding: EdgeInsets.all(4),
+            child: Icon(Icons.expand_less, size: 18, color: AppColors.textMuted),
+          ),
+        ),
+        InkWell(
+          onTap: onSignOut,
+          customBorder: const CircleBorder(),
+          child: const Padding(
+            padding: EdgeInsets.all(4),
+            child: Icon(Icons.logout, size: 17, color: AppColors.textMuted),
+          ),
+        ),
+      ],
     );
   }
 

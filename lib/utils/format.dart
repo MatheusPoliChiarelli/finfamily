@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ', decimalDigits: 2);
 final _plain = NumberFormat('#,##0.00', 'pt_BR');
 final _monthKey = DateFormat('yyyy-MM');
-final _monthLabel = DateFormat("MMMM 'de' yyyy", 'pt_BR');
+final _monthLabel = DateFormat('MMMM yyyy', 'pt_BR');
 final _dayLabel = DateFormat('dd MMM', 'pt_BR');
 final _fullDayLabel = DateFormat("d 'de' MMMM", 'pt_BR');
 final _weekday = DateFormat('EEEE', 'pt_BR');
@@ -33,3 +33,6 @@ String shortMonth(int month) {
   final raw = _shortMonth.format(DateTime(2000, month));
   return raw[0].toUpperCase() + raw.substring(1).replaceAll('.', '');
 }
+
+
+const weekdayShort = <String>['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];

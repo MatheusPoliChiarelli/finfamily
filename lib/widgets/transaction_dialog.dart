@@ -51,6 +51,7 @@ class _TransactionDialog extends StatefulWidget {
   final List<Car> activeCars;
   final List<Product> products;
 
+
   @override
   State<_TransactionDialog> createState() => _TransactionDialogState();
 }
@@ -66,6 +67,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   final _amountFocus = FocusNode();
   final _dialogFocus = FocusNode();
   final _quantityFocus = FocusNode();
+  final _scroll = ScrollController();
+  final _gridKey = GlobalKey();
 
   String _step = 'category';
   int _listIndex = 0;
@@ -93,7 +96,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       _category.id == 'correios' ||
       _category.id == 'cartao_rosangela';
 
-  bool get _fashionNoStock => _isFashionIncome && widget.bankId == Banks.itau.id;
+  bool get _fashionNoStock => _isFashionIncome;
 
   Color get _accent => widget.isIncome ? AppColors.income : AppColors.expense;
 
@@ -259,6 +262,30 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     }
   }
 
+
+  void _scrollToSelection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      final box = _gridKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null) return;
+
+      const columns = 3;
+      final rows = (_currentListLength / columns).ceil();
+      if (rows == 0) return;
+
+      final rowHeight = box.size.height / rows;
+      final currentRow = _listIndex ~/ columns;
+      final gridTop = box.localToGlobal(Offset.zero).dy;
+      final target = _scroll.offset + gridTop + (currentRow * rowHeight) - 220;
+
+      _scroll.animateTo(
+        target.clamp(0.0, _scroll.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
   void _move(int delta) {
     final length = _currentListLength;
     if (length == 0) return;
@@ -266,6 +293,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       _listIndex = (_listIndex + delta).clamp(0, length - 1);
       _applyListIndex();
     });
+    _scrollToSelection();
   }
 
   void _nextStep() {
@@ -342,6 +370,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     _amountFocus.dispose();
     _dialogFocus.dispose();
     _quantityFocus.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -504,6 +533,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
           autofocus: true,
           onKeyEvent: _onKey,
           child: SingleChildScrollView(
+            controller: _scroll,
             padding: const EdgeInsets.all(28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -511,9 +541,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
               children: [
                 _headerRow(),
                 const SizedBox(height: 24),
-                _label('Categoria', active: _step == 'category'),
-                const SizedBox(height: 10),
-                _grid(_options.map((c) => _categoryChip(c)).toList()),
+                _grid(_options.map((c) => _categoryChip(c)).toList(), key: _gridKey),
                 if (_isCarIncome) ...[
                   const SizedBox(height: 22),
                   _label('Tipo da entrada'),
@@ -853,7 +881,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
             border: Border.all(color: _accent.withValues(alpha: 0.5), width: 0.5),
           ),
           child: Icon(
-            widget.isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+            widget.isIncome ? Icons.arrow_upward : Icons.arrow_downward,
             size: 17,
             color: _accent,
           ),
@@ -919,8 +947,9 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
       );
 
-  Widget _grid(List<Widget> children) {
+  Widget _grid(List<Widget> children, {Key? key}) {
     return LayoutBuilder(
+      key: key,
       builder: (context, constraints) {
         const columns = 3;
         const gap = 8.0;

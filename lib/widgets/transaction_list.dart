@@ -11,6 +11,7 @@ class TransactionList extends StatefulWidget {
     super.key,
     required this.transactions,
     required this.onDelete,
+    required this.onEdit,
     this.emptyMessage = 'Nenhum lançamento',
     this.showDate = true,
     this.showBank = false,
@@ -18,6 +19,7 @@ class TransactionList extends StatefulWidget {
 
   final List<AppTransaction> transactions;
   final ValueChanged<String> onDelete;
+  final ValueChanged<AppTransaction> onEdit;
   final String emptyMessage;
   final bool showDate;
   final bool showBank;
@@ -102,89 +104,104 @@ class _TransactionListState extends State<TransactionList> {
     final meta = widget.showDate ? dayLabel(t.date) : '';
     final bank = Banks.byId(t.bankId);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF1F2429), width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceRaised,
-              borderRadius: BorderRadius.circular(9),
+    return InkWell(
+      onTap: () => widget.onEdit(t),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFF1F2429), width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceRaised,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(Categories.byId(t.categoryId).icon, size: 16, color: Color(t.categoryColor)),
             ),
-            child: Icon(Categories.byId(t.categoryId).icon, size: 16, color: Color(t.categoryColor)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(t.description, style: AppTheme.ui(13), overflow: TextOverflow.ellipsis),
-                    ),
-                    if (widget.showBank && t.bankId.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: bank.color.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(11),
-                          border: Border.all(color: bank.color.withValues(alpha: 0.5), width: 0.5),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (bank.logo != null) ...[
-                              Container(
-                                width: 13,
-                                height: 13,
-                                clipBehavior: Clip.antiAlias,
-                                decoration: const BoxDecoration(shape: BoxShape.circle),
-                                child: Image.asset(bank.logo!, fit: BoxFit.cover),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(t.description, style: AppTheme.ui(13), overflow: TextOverflow.ellipsis),
+                      ),
+                      if (t.isRecurring) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.repeat, size: 13, color: AppColors.accent),
+                      ],
+                    ],
+                  ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(meta, style: AppTheme.ui(11, color: AppColors.textMuted)),
+                  ],
+                ],
+              ),
+            ),
+            if (widget.showBank) ...[
+              SizedBox(
+                width: 132,
+                child: t.bankId.isEmpty
+                    ? const SizedBox()
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: bank.color.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(color: bank.color.withValues(alpha: 0.5), width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (bank.logo != null) ...[
+                                Container(
+                                  width: 13,
+                                  height: 13,
+                                  clipBehavior: Clip.antiAlias,
+                                  decoration: const BoxDecoration(shape: BoxShape.circle),
+                                  child: Image.asset(bank.logo!, fit: BoxFit.contain),
+                                ),
+                                const SizedBox(width: 5),
+                              ],
+                              Text(
+                                bank.name,
+                                style: AppTheme.ui(10, color: bank.color, weight: FontWeight.w500),
                               ),
-                              const SizedBox(width: 5),
                             ],
-                            Text(
-                              bank.name,
-                              style: AppTheme.ui(10, color: bank.color, weight: FontWeight.w500),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ],
-                    if (t.isRecurring) ...[
-                      const SizedBox(width: 6),
-                      const Icon(Icons.repeat, size: 13, color: AppColors.accent),
-                    ],
-                  ],
-                ),
-                if (meta.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(meta, style: AppTheme.ui(11, color: AppColors.textMuted)),
-                ],
-              ],
+              ),
+              const SizedBox(width: 10),
+            ],
+            SizedBox(
+              width: 90,
+              child: Text(
+                '${t.isIncome ? '+' : '-'} ${plain(t.amount)}',
+                textAlign: TextAlign.right,
+                style: AppTheme.uiMoney(13, color: t.isIncome ? AppColors.income : AppColors.expense),
+              ),
             ),
-          ),
-          Text(
-            '${t.isIncome ? '+' : '-'} ${plain(t.amount)}',
-            style: AppTheme.uiMoney(13, color: t.isIncome ? AppColors.income : AppColors.expense),
-          ),
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: () => widget.onDelete(t.id),
-            customBorder: const CircleBorder(),
-            child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.close, size: 14, color: AppColors.textMuted),
+            const SizedBox(width: 6),
+            InkWell(
+              onTap: () => widget.onDelete(t.id),
+              customBorder: const CircleBorder(),
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.close, size: 14, color: AppColors.textMuted),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

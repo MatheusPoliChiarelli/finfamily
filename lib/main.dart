@@ -7,10 +7,13 @@ import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
   await initializeDateFormatting('pt_BR', null);
   runApp(const FinFamilyApp());
 }

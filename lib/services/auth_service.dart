@@ -74,8 +74,30 @@ class AuthService {
           return 'A senha precisa ter ao menos 6 caracteres';
         case 'network-request-failed':
           return 'Sem conexão com a internet';
+        case 'requires-recent-login':
+          return 'Entre novamente para alterar a senha';
+        case 'too-many-requests':
+          return 'Muitas tentativas. Tente mais tarde';
       }
     }
     return 'Não foi possível continuar. Tente novamente';
   }
+
+
+
+
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    final user = _auth.currentUser!;
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: currentPassword,
+    );
+    await user.reauthenticateWithCredential(credential);
+    await user.updatePassword(newPassword);
+  }
+
+  Future<void> sendPasswordReset(String email) =>
+      _auth.sendPasswordResetEmail(email: email.trim());
+
+
 }

@@ -10,40 +10,35 @@ import '../utils/format.dart';
 import '../widgets/category_chart.dart';
 import '../widgets/monthly_chart.dart';
 
-class YearScreen extends StatefulWidget {
+class YearScreen extends StatelessWidget {
   const YearScreen({
     super.key,
     required this.fs,
     required this.bankId,
+    required this.year,
     required this.header,
   });
 
   final FirestoreService fs;
   final String bankId;
+  final int year;
   final Widget header;
 
-  @override
-  State<YearScreen> createState() => _YearScreenState();
-}
-
-class _YearScreenState extends State<YearScreen> {
-  int _year = DateTime.now().year;
-
   List<AppTransaction> _filter(List<AppTransaction> all) {
-    if (widget.bankId == Banks.geral.id) return all;
-    return all.where((t) => t.bankId == widget.bankId).toList();
+    if (bankId == Banks.geral.id) return all;
+    return all.where((t) => t.bankId == bankId).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AppTransaction>>(
-      stream: widget.fs.transactionsOfYear(_year),
+      stream: fs.transactionsOfYear(year),
       builder: (context, txSnap) {
         final transactions = _filter(txSnap.data ?? const <AppTransaction>[]);
         final loading = txSnap.connectionState == ConnectionState.waiting;
 
         return StreamBuilder<List<Budget>>(
-          stream: widget.fs.budgetsOfYear(_year),
+          stream: fs.budgetsOfYear(year),
           builder: (context, budgetSnap) {
             final budgets = budgetSnap.data ?? const <Budget>[];
             return _content(transactions, budgets, loading);
@@ -72,7 +67,7 @@ class _YearScreenState extends State<YearScreen> {
         : (spentByCategory.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first;
 
     final now = DateTime.now();
-    final isCurrentYear = now.year == _year;
+    final isCurrentYear = now.year == year;
     final monthsElapsed = isCurrentYear ? now.month : 12;
 
     final monthlyIncome = List<double>.filled(12, 0);
@@ -97,7 +92,7 @@ class _YearScreenState extends State<YearScreen> {
       if (parts.length != 2) continue;
       final m = int.tryParse(parts[1]);
       if (m == null || m < 1 || m > 12) continue;
-      patrimony[m - 1] = b.closingFor(widget.bankId);
+      patrimony[m - 1] = b.closingFor(bankId);
     }
 
     final monthlyAverage = monthsElapsed > 0 ? expense / monthsElapsed : 0.0;
@@ -112,58 +107,13 @@ class _YearScreenState extends State<YearScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          widget.header,
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.accentSoft,
-                  borderRadius: BorderRadius.circular(26),
-                  border: Border.all(color: AppColors.accent, width: 1),
-                  boxShadow: [
-                    BoxShadow(color: AppColors.accent.withValues(alpha: 0.28), blurRadius: 18),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      onTap: () => setState(() => _year--),
-                      customBorder: const CircleBorder(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: Icon(Icons.chevron_left, size: 18, color: AppColors.accent),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 100,
-                      child: Text(
-                        '$_year',
-                        textAlign: TextAlign.center,
-                        style: AppTheme.uiMoney(16, weight: FontWeight.w500),
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () => setState(() => _year++),
-                      customBorder: const CircleBorder(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: Icon(Icons.chevron_right, size: 18, color: AppColors.accent),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          header,
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _metric('Receitas do ano', money(income), AppColors.income, Icons.arrow_downward)),
+              Expanded(child: _metric('Entradas do ano', money(income), AppColors.income, Icons.arrow_upward)),
               const SizedBox(width: 14),
-              Expanded(child: _metric('Despesas do ano', money(expense), AppColors.expense, Icons.arrow_upward)),
+              Expanded(child: _metric('Saídas do ano', money(expense), AppColors.expense, Icons.arrow_downward)),
               const SizedBox(width: 14),
               Expanded(
                 child: _metric(
@@ -201,7 +151,7 @@ class _YearScreenState extends State<YearScreen> {
           const SizedBox(height: 14),
           _card(
             title: 'Despesas por categoria',
-            subtitle: 'Ano de $_year',
+            subtitle: 'Ano de $year',
             child: loading ? _spinner() : CategoryChart(spent: spentByCategory),
           ),
           const SizedBox(height: 14),
@@ -217,7 +167,7 @@ class _YearScreenState extends State<YearScreen> {
               Expanded(
                 child: _card(
                   title: 'Entradas por mês',
-                  subtitle: 'Ano de $_year',
+                  subtitle: 'Ano de $year',
                   child: MonthlyChart(values: monthlyIncome, color: AppColors.income),
                 ),
               ),
@@ -225,7 +175,7 @@ class _YearScreenState extends State<YearScreen> {
               Expanded(
                 child: _card(
                   title: 'Saídas por mês',
-                  subtitle: 'Ano de $_year',
+                  subtitle: 'Ano de $year',
                   child: MonthlyChart(values: monthlyExpense, color: AppColors.expense),
                 ),
               ),

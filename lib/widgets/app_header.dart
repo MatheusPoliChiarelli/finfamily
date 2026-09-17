@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -19,18 +18,18 @@ class AppHeader extends StatelessWidget {
     required this.onSaveClosingBalance,
     required this.onNewExpense,
     required this.onNewIncome,
-    required this.onSignOut,
-    this.title = 'Visão geral',
-    this.showDayStrip = true,
     required this.selectedBankId,
     required this.onSelectBank,
+    required this.dayBalance,
+    this.title = 'Visão geral',
+    this.showDayStrip = true,
     this.canAddTransaction = true,
     this.balancesEditable = true,
     this.showActions = true,
-        required this.dayBalance,
     this.showDayBalance = false,
     this.showBalances = true,
-
+    this.titleOverride,
+    this.bankBorder,
   });
 
   final DateTime month;
@@ -43,7 +42,6 @@ class AppHeader extends StatelessWidget {
   final ValueChanged<double> onSaveClosingBalance;
   final VoidCallback onNewExpense;
   final VoidCallback onNewIncome;
-  final VoidCallback onSignOut;
   final String title;
   final bool showDayStrip;
   final String selectedBankId;
@@ -51,23 +49,14 @@ class AppHeader extends StatelessWidget {
   final bool canAddTransaction;
   final bool balancesEditable;
   final bool showActions;
-    final double dayBalance;
+  final double dayBalance;
   final bool showDayBalance;
   final bool showBalances;
+  final String? titleOverride;
+  final Color? bankBorder;
 
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
-  }
-
-  @override
+    @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final name = user?.displayName ?? 'Você';
-    final email = user?.email ?? '';
-
     final hasBoth = openingBalance != 0 && closingBalance != 0;
     final monthBalance = hasBoth ? closingBalance - openingBalance : null;
     final balanceColor = monthBalance == null
@@ -77,29 +66,36 @@ class AppHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _monthSelector(),
+        ),
+        const SizedBox(height: 18),
         Row(
           children: [
-            Text(title, style: AppTheme.display(34)),
-            const SizedBox(width: 20),
-            _monthSelector(),
-            const SizedBox(width: 20),
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: BankSelector(selectedId: selectedBankId, onSelect: onSelectBank),
               ),
             ),
-            const SizedBox(width: 20),
-            if (showActions) ...[
-              _actionButton('Saída', Icons.keyboard_arrow_down, AppColors.expense, onNewExpense, canAddTransaction),
-              const SizedBox(width: 10),
-              _actionButton('Entrada', Icons.keyboard_arrow_up, AppColors.income, onNewIncome, canAddTransaction),
-              const SizedBox(width: 16),
-            ],
-            _avatarMenu(name, email),
+            const SizedBox(width: 16),
+            Opacity(
+              opacity: showActions && canAddTransaction ? 1 : 0,
+              child: IgnorePointer(
+                ignoring: !(showActions && canAddTransaction),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _actionButton('Entrada', Icons.arrow_upward, AppColors.income, onNewIncome),
+                    const SizedBox(width: 8),
+                    _actionButton('Saída', Icons.arrow_downward, AppColors.expense, onNewExpense),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 18),
         if (showBalances) ...[
           const SizedBox(height: 18),
           SingleChildScrollView(
@@ -112,6 +108,7 @@ class AppHeader extends StatelessWidget {
                   icon: Icons.savings_outlined,
                   value: openingBalance,
                   onSave: balancesEditable ? onSaveOpeningBalance : null,
+                  borderColor: bankBorder,
                 ),
                 const SizedBox(width: 12),
                 if (showDayBalance) ...[
@@ -120,6 +117,7 @@ class AppHeader extends StatelessWidget {
                     icon: Icons.today_outlined,
                     value: dayBalance,
                     valueColor: dayBalance >= 0 ? AppColors.income : AppColors.expense,
+                    borderColor: bankBorder,
                   ),
                   const SizedBox(width: 12),
                 ],
@@ -129,6 +127,7 @@ class AppHeader extends StatelessWidget {
                   icon: Icons.account_balance_outlined,
                   value: closingBalance,
                   onSave: balancesEditable ? onSaveClosingBalance : null,
+                  borderColor: bankBorder,
                 ),
                 const SizedBox(width: 12),
                 BalanceField(
@@ -144,61 +143,44 @@ class AppHeader extends StatelessWidget {
         ],
         if (showDayStrip) ...[
           const SizedBox(height: 18),
-          _dayStrip(),
+          _dayStrip(context),
         ],
       ],
     );
   }
 
   Widget _monthSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: AppColors.accent, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accent.withValues(alpha: 0.28),
-            blurRadius: 18,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _arrow(Icons.chevron_left, () => onShiftMonth(-1), AppColors.accent),
-          SizedBox(
-            width: 168,
-            child: Text(
-              monthLabel(month),
-              textAlign: TextAlign.center,
-              style: AppTheme.ui(16, color: AppColors.textPrimary, weight: FontWeight.w500),
-            ),
-          ),
-          _arrow(Icons.chevron_right, () => onShiftMonth(1), AppColors.accent),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _arrow(Icons.chevron_left, () => onShiftMonth(-1), AppColors.textSecondary),
+        const SizedBox(width: 6),
+        Text(titleOverride ?? monthLabel(month), style: AppTheme.display(30)),
+        const SizedBox(width: 6),
+        _arrow(Icons.chevron_right, () => onShiftMonth(1), AppColors.textSecondary),
+      ],
     );
   }
 
-  Widget _dayStrip() {
+  Widget _dayStrip(BuildContext context) {
     final totalDays = DateTime(month.year, month.month + 1, 0).day;
     final now = DateTime.now();
     final isCurrentMonth = now.year == month.year && now.month == month.month;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const gap = 6.0;
-        final size = ((constraints.maxWidth - gap * (totalDays - 1)) / totalDays).clamp(30.0, 44.0);
+        const gap = 5.0;
+        final width = (constraints.maxWidth - gap * (totalDays - 1)) / totalDays;
 
         return Row(
+          mainAxisAlignment: MainAxisAlignment.start,
           children: List.generate(totalDays, (index) {
             final day = index + 1;
+            final date = DateTime(month.year, month.month, day);
             final selected = day == selectedDay;
             final isToday = isCurrentMonth && day == now.day;
-            final isPast = !isCurrentMonth || day <= now.day;
+            final today = DateTime(now.year, now.month, now.day);
+            final isPast = !date.isAfter(today);
 
             return Padding(
               padding: EdgeInsets.only(right: day == totalDays ? 0 : gap),
@@ -206,41 +188,44 @@ class AppHeader extends StatelessWidget {
                 onTap: () => onSelectDay(day),
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  width: size,
-                  height: size,
-                  alignment: Alignment.center,
+                  width: width,
+                  height: 52,
                   decoration: BoxDecoration(
-                    color: selected ? AppColors.accent : AppColors.surface,
+                    color: selected
+                        ? AppColors.accentSoft
+                        : (isPast ? AppColors.surface : Colors.transparent),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: selected
-                          ? AppColors.accent
-                          : isPast
-                              ? AppColors.accent.withValues(alpha: 0.6)
-                              : AppColors.border,
-                      width: selected || isPast ? 1 : 0.5,
+                          ? (bankBorder ?? AppColors.borderAccent)
+                          : (isToday
+                              ? (bankBorder ?? AppColors.accent)
+                              : (isPast ? (bankBorder ?? AppColors.border) : Colors.transparent)),
+                      width: selected || isToday ? 1 : 0.5,
                     ),
-                    boxShadow: selected
-                        ? [
-                            BoxShadow(
-                              color: AppColors.accent.withValues(alpha: 0.45),
-                              blurRadius: 16,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
                   ),
-                  child: Text(
-                    '$day',
-                    style: AppTheme.uiMoney(
-                      12,
-                      color: selected
-                          ? AppColors.onAccent
-                          : isPast
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        weekdayShort[date.weekday - 1],
+                        style: AppTheme.ui(
+                          10,
+                          color: selected ? AppColors.accent : AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '$day',
+                        style: AppTheme.uiMoney(
+                          15,
+                          color: selected
                               ? AppColors.accent
-                              : AppColors.textMuted,
-                      weight: selected || isToday ? FontWeight.w500 : FontWeight.w400,
-                    ),
+                              : (isPast ? AppColors.textSecondary : AppColors.textMuted),
+                          weight: selected ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -251,92 +236,37 @@ class AppHeader extends StatelessWidget {
     );
   }
 
-  Widget _actionButton(String label, IconData icon, Color color, VoidCallback onTap, bool enabled) {
-    return Tooltip(
-      message: enabled ? '' : 'Escolha um banco para lançar',
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(22),
-        child: Opacity(
-          opacity: enabled ? 1 : 0.4,
-          child: Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: color.withValues(alpha: 0.55), width: 0.5),
+  Widget _actionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        width: 150,
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+              child: Icon(icon, size: 17, color: AppColors.bg),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 16, color: color),
-                const SizedBox(width: 9),
-                Text(label, style: AppTheme.ui(13, color: color, weight: FontWeight.w500)),
-              ],
-            ),
-          ),
+            const SizedBox(width: 10),
+            Text(label, style: AppTheme.ui(14, color: color, weight: FontWeight.w500)),
+          ],
         ),
       ),
     );
   }
 
-  
-  Widget _avatarMenu(String name, String email) {
-    return PopupMenuButton<String>(
-      offset: const Offset(0, 52),
-      padding: EdgeInsets.zero,
-      splashRadius: 22,
-      color: AppColors.surfaceRaised,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.border, width: 0.5),
-      ),
-      onSelected: (value) {
-        if (value == 'signout') onSignOut();
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem<String>(
-          enabled: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: AppTheme.ui(13, weight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              Text(email, style: AppTheme.ui(11, color: AppColors.textMuted)),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'signout',
-          child: Row(
-            children: [
-              const Icon(Icons.logout, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 10),
-              Text('Sair', style: AppTheme.ui(13)),
-            ],
-          ),
-        ),
-      ],
-      child: ClipOval(
-        child: Container(
-          width: 44,
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.accentSoft,
-            border: Border.all(color: AppColors.borderAccent, width: 0.5),
-          ),
-          child: Text(
-            _initials(name),
-            style: AppTheme.ui(13, color: AppColors.accent, weight: FontWeight.w500),
-          ),
-        ),
-      ),
-    );
-  }
+
   Widget _arrow(IconData icon, VoidCallback onTap, Color color) {
     return InkWell(
       onTap: onTap,

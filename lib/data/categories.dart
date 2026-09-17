@@ -27,8 +27,10 @@ class Categories {
     Category(id: 'agua', name: 'Água', icon: Icons.water_drop_outlined, color: 0xFF85B7EB),
     Category(id: 'aluguel', name: 'Aluguel', icon: Icons.home_outlined, color: 0xFF7F77DD),
     Category(id: 'unimed', name: 'Unimed', icon: Icons.local_hospital_outlined, color: 0xFFED93B1),
+    Category(id: 'unimed_joao', name: 'Unimed João', icon: Icons.local_hospital_outlined, color: 0xFFED93B1),
     Category(id: 'lazer', name: 'Lazer', icon: Icons.local_activity_outlined, color: 0xFFF0997B),
     Category(id: 'emprestimos', name: 'Empréstimos', icon: Icons.account_balance_outlined, color: 0xFFE24B4A),
+    Category(id: 'inss', name: 'INSS', icon: Icons.account_balance_outlined, color: 0xFFE24B4A),
     Category(id: 'farmacia', name: 'Farmácia', icon: Icons.medication_outlined, color: 0xFFF4C0D1),
     Category(id: 'contador', name: 'Contador', icon: Icons.calculate_outlined, color: 0xFFAFA9EC),
     Category(id: 'impostos', name: 'Impostos', icon: Icons.receipt_long_outlined, color: 0xFFBA7517),
@@ -45,6 +47,7 @@ class Categories {
     Category(id: 'correios', name: 'Correios', icon: Icons.local_shipping_outlined, color: 0xFF5DCAA5),
     Category(id: 'investimentos', name: 'Investimentos', icon: Icons.trending_up, color: 0xFF97C459),
     Category(id: 'cartao_nubank_robson', name: 'Fatura Nubank Robson', icon: Icons.credit_card_outlined, color: 0xFF9B4DFF),
+    Category(id: 'cartao_bradesco', name: 'Fatura Cartão Bradesco', icon: Icons.credit_card_outlined, color: 0xFF9B4DFF),
     Category(id: 'internet_joao', name: 'Internet João', icon: Icons.wifi_outlined, color: 0xFF85B7EB),
     Category(id: 'energia_joao', name: 'Energia João', icon: Icons.bolt_outlined, color: 0xFF85B7EB),
     Category(id: 'seguro_carro_joao', name: 'Seguro Carro João', icon: Icons.shield_outlined, color: 0xFF85B7EB),
@@ -54,6 +57,8 @@ class Categories {
     Category(id: 'alarme', name: 'Alarme', icon: Icons.security_outlined, color: 0xFF7F77DD),
     Category(id: 'fatura_nubank_rose', name: 'Fatura Nubank Rose', icon: Icons.credit_card_outlined, color: 0xFF9B4DFF),
     Category(id: 'cartao_rosangela', name: 'Cartão Rosângela', icon: Icons.credit_card_outlined, color: 0xFFED93B1),
+    Category(id: 'iptu', name: 'IPTU', icon: Icons.home_work_outlined, color: 0xFFBA7517),
+    Category(id: 'duplicata', name: 'Duplicata', icon: Icons.request_page_outlined, color: 0xFFAFA9EC),
     Category(id: 'outros', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780),
 
 

@@ -13,7 +13,6 @@ import '../utils/format.dart';
 import '../widgets/app_header.dart';
 import '../widgets/app_sidebar.dart';
 import '../widgets/category_chart.dart';
-import '../widgets/screen_glow.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_list.dart';
 import 'cars_screen.dart';
@@ -23,6 +22,7 @@ import 'package:flutter/services.dart';
 import '../widgets/daily_chart.dart';
 import 'dart:async';
 import 'year_screen.dart';
+import '../widgets/edit_transaction_dialog.dart';
 
 
 class DashboardScreen extends StatefulWidget {
@@ -48,6 +48,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _showAllTransactions = false;
   String _dayBuffer = '';
   Timer? _dayTimer;
+  int _year = DateTime.now().year;
+  Color? get _bankBorder =>
+      _bankId == Banks.geral.id ? null : Banks.byId(_bankId).color.withValues(alpha: 0.55);
 
 
   @override
@@ -107,6 +110,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (ModalRoute.of(context)?.isCurrent != true) return false;
 
     final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      _shiftMonth(-1);
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowRight) {
+      _shiftMonth(1);
+      return true;
+    }
 
     if (key == LogicalKeyboardKey.arrowDown) {
       if (_section == 'overview' && _bankId != Banks.geral.id) {
@@ -215,6 +227,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String get _uid => FirebaseAuth.instance.currentUser!.uid;
 
+  Future<void> _editTransaction(AppTransaction t) async {
+    final data = await showEditTransactionDialog(context, t);
+    if (data != null) await _fs!.updateTransaction(t.id, data);
+  }
+
   Future<void> _saveOpeningBalance(double value) =>
       _fs!.saveOpeningBalance(_month, _bankId, value, _uid);
 
@@ -222,6 +239,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _fs!.saveClosingBalance(_month, _bankId, value, _uid);
 
   void _shiftMonth(int delta) {
+    if (_section == 'year') {
+      setState(() => _year += delta);
+      return;
+    }
+
     final next = DateTime(_month.year, _month.month + delta);
     final now = DateTime.now();
     final isCurrent = now.year == next.year && now.month == next.month;
@@ -362,12 +384,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AppSidebar(selected: _section, onSelect: _onSection),
+            AppSidebar(selected: _section, onSelect: _onSection, onSignOut: _auth.signOut),
             Expanded(
-              child: ScreenGlow(
-                color: Banks.byId(_bankId).color,
-                active: _bankId != Banks.geral.id && _section != 'cars' && _section != 'fashion',
-                child: StreamBuilder<Budget>(
+              child: StreamBuilder<Budget>(
                   stream: _fs!.budgetOfMonth(_month),
                   builder: (context, budgetSnap) {
                     _budget = budgetSnap.data ?? Budget(month: monthKey(_month), limits: const {});
@@ -378,9 +397,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         final loading = txSnap.connectionState == ConnectionState.waiting;
                         return switch (_section) {
                           'summary' => _summaryView(transactions, loading),
-                          'year' => YearScreen(fs: _fs!, bankId: _bankId, header: _header()),
+                          'year' => YearScreen(fs: _fs!, bankId: _bankId, year: _year, header: _header()),
                           'cars' => CarsScreen(fs: _fs!),
                           'fashion' => ViseVersaScreen(fs: _fs!),
+                
                           _ => _overview(transactions, loading),
                         };
                       },
@@ -388,7 +408,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   },
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -414,7 +433,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onSaveClosingBalance: _saveClosingBalance,
       onNewExpense: () => _newTransaction(isIncome: false),
       onNewIncome: () => _newTransaction(isIncome: true),
-      onSignOut: _auth.signOut,
       canAddTransaction: _bankId != Banks.geral.id,
       title: switch (_section) {
         'summary' => 'Resumo do mês',
@@ -425,6 +443,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       showDayStrip: _section == 'overview',
       showBalances: _section != 'year',
+      titleOverride: _section == 'year' ? '$_year' : null,
+      bankBorder: _bankBorder,
     );
   }
 
@@ -471,9 +491,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _metric('Entradas do dia', money(income), AppColors.income, false, Icons.arrow_downward)),
+              Expanded(child: _metric('Entradas do dia', money(income), AppColors.income, false, Icons.arrow_upward)),
               const SizedBox(width: 14),
-              Expanded(child: _metric('Saídas do dia', money(expense), AppColors.expense, false, Icons.arrow_upward)),
+              Expanded(child: _metric('Saídas do dia', money(expense), AppColors.expense, false, Icons.arrow_downward)),
               const SizedBox(width: 14),
               Expanded(
                 child: _metric(
@@ -507,6 +527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         emptyMessage: 'Nada lançado neste dia',
                         showDate: false,
                         showBank: _bankId == Banks.geral.id,
+                        onEdit: _editTransaction,
                       ),
               );
               if (narrow) {
@@ -552,6 +573,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final topCategory = spentByCategory.entries.isEmpty
         ? null
         : (spentByCategory.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first;
+  
+    final expenses = transactions.where((t) => !t.isIncome && !t.isTransfer).toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+    final biggestExpense = expenses.isEmpty ? null : expenses.first;
 
     final monthDays = DateTime(_month.year, _month.month + 1, 0).day;
     final now = DateTime.now();
@@ -591,9 +616,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _metric('Receitas', money(income), AppColors.income, false, Icons.arrow_downward)),
+              Expanded(child: _metric('Entradas', money(income), AppColors.income, false, Icons.arrow_upward)),
               const SizedBox(width: 14),
-              Expanded(child: _metric('Despesas', money(expense), AppColors.expense, false, Icons.arrow_upward)),
+              Expanded(child: _metric('Saídas', money(expense), AppColors.expense, false, Icons.arrow_downward)),
             ],
           ),
           const SizedBox(height: 14),
@@ -612,9 +637,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 14),
               Expanded(
                 child: _miniStat(
-                  matches ? 'Confere com o extrato' : 'Falta lançar',
-                  matches ? 'OK' : money(divergence.abs()),
-                  valueColor: matches ? AppColors.income : AppColors.expense,
+                  'Maior saída do mês',
+                  biggestExpense == null ? '--' : money(biggestExpense.amount),
                 ),
               ),
             ],
@@ -701,6 +725,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onDelete: (id) => _fs!.deleteTransaction(id),
                           emptyMessage: 'Nenhum lançamento neste mês',
                           showBank: _bankId == Banks.geral.id,
+                          onEdit: _editTransaction,
                         ),
                 ],
               ],
@@ -737,7 +762,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(
+          color: _bankBorder ?? AppColors.border,
+          width: _bankBorder != null ? 1 : 0.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -763,13 +791,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     IconData icon, {
     Color? borderColor,
   }) {
-    final border = borderColor ?? (highlight ? AppColors.borderAccent : AppColors.border);
+    final border = borderColor ?? _bankBorder ?? (highlight ? AppColors.borderAccent : AppColors.border);
+    final thick = borderColor != null || _bankBorder != null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         color: highlight ? AppColors.surfaceRaised : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border, width: borderColor != null ? 1 : 0.5),
+        border: Border.all(color: border, width: thick ? 1 : 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -798,7 +827,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(
+          color: _bankBorder ?? AppColors.border,
+          width: _bankBorder != null ? 1 : 0.5,
+        ),
       ),
       child: Row(
         children: [

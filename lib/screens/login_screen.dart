@@ -20,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSignUp = false;
   bool _loading = false;
   String? _error;
+  String? _info;
 
   @override
   void dispose() {
@@ -43,6 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _info = null;
     });
 
     try {
@@ -55,6 +57,35 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         await _auth.signIn(_email.text, _password.text);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = _auth.messageFor(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+
+
+    Future<void> _resetPassword() async {
+    if (_email.text.trim().isEmpty) {
+      setState(() {
+        _error = 'Informe seu e-mail para receber o link';
+        _info = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _info = null;
+    });
+
+    try {
+      await _auth.sendPasswordReset(_email.text);
+      if (mounted) {
+        setState(() => _info = 'Link de recuperação enviado para seu e-mail');
       }
     } catch (e) {
       if (mounted) setState(() => _error = _auth.messageFor(e));
@@ -129,9 +160,38 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: AppTheme.ui(12, color: AppColors.textMuted),
                     ),
                   ],
+                  if (!_isSignUp) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: InkWell(
+                        onTap: _loading ? null : _resetPassword,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          child: Text(
+                            'Esqueci minha senha',
+                            style: AppTheme.ui(12, color: AppColors.accent),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),
+                  ],
+                  if (_info != null) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Icon(Icons.mark_email_read_outlined, size: 16, color: AppColors.income),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_info!, style: AppTheme.ui(13, color: AppColors.income)),
+                        ),
+                      ],
+                    ),
                   ],
                   const SizedBox(height: 24),
                   FilledButton(
