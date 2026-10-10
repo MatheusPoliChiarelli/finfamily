@@ -24,6 +24,7 @@ import 'dart:async';
 import 'year_screen.dart';
 import '../widgets/edit_transaction_dialog.dart';
 
+const _nonExpenseCategories = {'vise_versa', 'robmotors', 'duplicata', 'transporte_nena'};
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -51,6 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _year = DateTime.now().year;
   Color? get _bankBorder =>
       _bankId == Banks.geral.id ? null : Banks.byId(_bankId).color.withValues(alpha: 0.55);
+  bool _onlyExpenses = false;
 
 
   @override
@@ -470,7 +472,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             : AppColors.accent;
 
     final spentByCategory = <String, double>{};
-    for (final t in dayTransactions.where((t) => !t.isIncome && !t.isTransfer)) {
+    for (final t in transactions.where((t) => !t.isIncome && !t.isTransfer)) {
+      if (_onlyExpenses && _nonExpenseCategories.contains(t.categoryId)) continue;
       spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
     }
 
@@ -502,7 +505,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   dayColor,
                   true,
                   Icons.account_balance_wallet_outlined,
-                  borderColor: dayBalance == 0 ? null : dayColor,
                 ),
               ),
             ],
@@ -565,6 +567,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final spentByCategory = <String, double>{};
     for (final t in transactions.where((t) => !t.isIncome && !t.isTransfer)) {
       spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
+    }
+
+    final earnedByCategory = <String, double>{};
+    for (final t in transactions.where((t) => t.isIncome && !t.isTransfer)) {
+      earnedByCategory[t.categoryId] = (earnedByCategory[t.categoryId] ?? 0) + t.amount;
     }
 
     final daysElapsed = _daysElapsed();
@@ -644,10 +651,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          _card(
-            title: 'Despesas por categoria',
-            subtitle: monthLabel(_month),
-            child: CategoryChart(spent: spentByCategory),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _card(
+                  title: 'Saídas por categoria',
+                  subtitle: monthLabel(_month),
+                  action: _expenseFilterButton(),
+                  child: CategoryChart(spent: spentByCategory),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _card(
+                  title: 'Entradas por categoria',
+                  subtitle: monthLabel(_month),
+                  child: CategoryChart(spent: earnedByCategory),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           _card(
@@ -668,7 +691,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _card(
                   title: 'Entradas por dia',
                   subtitle: monthLabel(_month),
-                  child: DailyChart(values: dailyIncome, color: AppColors.income),
+                  child: DailyChart(values: dailyIncome, color: AppColors.income, height: 180),
                 ),
               ),
               const SizedBox(width: 14),
@@ -676,7 +699,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _card(
                   title: 'Saídas por dia',
                   subtitle: monthLabel(_month),
-                  child: DailyChart(values: dailyExpense, color: AppColors.expense),
+                  child: DailyChart(values: dailyExpense, color: AppColors.expense, height: 180),
                 ),
               ),
             ],
@@ -737,7 +760,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 
-
+  Widget _expenseFilterButton() {
+    return InkWell(
+      onTap: () => setState(() => _onlyExpenses = !_onlyExpenses),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _onlyExpenses ? AppColors.accentSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _onlyExpenses ? AppColors.accent : AppColors.border,
+            width: _onlyExpenses ? 1 : 0.5,
+          ),
+        ),
+        child: Text(
+          'Apenas despesas',
+          style: AppTheme.ui(
+            11,
+            color: _onlyExpenses ? AppColors.accent : AppColors.textMuted,
+            weight: _onlyExpenses ? FontWeight.w500 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _spinner() => const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
@@ -756,7 +805,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return DateTime(_month.year, _month.month + 1, 0).day;
   }
 
-  Widget _card({required String title, String? subtitle, required Widget child}) {
+  Widget _card({required String title, String? subtitle, Widget? action, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -771,11 +820,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(title, style: AppTheme.ui(17, color: AppColors.accent, weight: FontWeight.w500)),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(subtitle, style: AppTheme.ui(12, color: AppColors.textMuted)),
-          ],
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppTheme.ui(17, color: AppColors.accent, weight: FontWeight.w500)),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(subtitle, style: AppTheme.ui(12, color: AppColors.textMuted)),
+                    ],
+                  ],
+                ),
+              ),
+              if (action != null) action,
+            ],
+          ),
           const SizedBox(height: 20),
           Flexible(child: SingleChildScrollView(child: child)),
         ],

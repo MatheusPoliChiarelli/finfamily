@@ -59,6 +59,8 @@ class Categories {
     Category(id: 'cartao_rosangela', name: 'Cartão Rosângela', icon: Icons.credit_card_outlined, color: 0xFFED93B1),
     Category(id: 'iptu', name: 'IPTU', icon: Icons.home_work_outlined, color: 0xFFBA7517),
     Category(id: 'duplicata', name: 'Duplicata', icon: Icons.request_page_outlined, color: 0xFFAFA9EC),
+    Category(id: 'internet_casa', name: 'Internet Casa', icon: Icons.request_page_outlined, color: 0xFFAFA9EC),
+    Category(id: 'celular_casa', name: 'Celular Casa', icon: Icons.request_page_outlined, color: 0xFFAFA9EC),
     Category(id: 'outros', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780),
 
 

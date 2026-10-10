@@ -258,8 +258,13 @@ class AppHeader extends StatelessWidget {
               decoration: BoxDecoration(shape: BoxShape.circle, color: color),
               child: Icon(icon, size: 17, color: AppColors.bg),
             ),
-            const SizedBox(width: 10),
-            Text(label, style: AppTheme.ui(14, color: color, weight: FontWeight.w500)),
+            Expanded(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: AppTheme.ui(14, color: color, weight: FontWeight.w500),
+              ),
+            ),
           ],
         ),
       ),

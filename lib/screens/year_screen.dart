@@ -10,7 +10,9 @@ import '../utils/format.dart';
 import '../widgets/category_chart.dart';
 import '../widgets/monthly_chart.dart';
 
-class YearScreen extends StatelessWidget {
+const _nonExpenseCategories = {'vise_versa', 'robmotors', 'duplicata', 'transporte_nena'};
+
+class YearScreen extends StatefulWidget {
   const YearScreen({
     super.key,
     required this.fs,
@@ -24,21 +26,28 @@ class YearScreen extends StatelessWidget {
   final int year;
   final Widget header;
 
+  @override
+  State<YearScreen> createState() => _YearScreenState();
+}
+
+class _YearScreenState extends State<YearScreen> {
+  bool _onlyExpenses = false;
+
   List<AppTransaction> _filter(List<AppTransaction> all) {
-    if (bankId == Banks.geral.id) return all;
-    return all.where((t) => t.bankId == bankId).toList();
+    if (widget.bankId == Banks.geral.id) return all;
+    return all.where((t) => t.bankId == widget.bankId).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AppTransaction>>(
-      stream: fs.transactionsOfYear(year),
+      stream: widget.fs.transactionsOfYear(widget.year),
       builder: (context, txSnap) {
         final transactions = _filter(txSnap.data ?? const <AppTransaction>[]);
         final loading = txSnap.connectionState == ConnectionState.waiting;
 
         return StreamBuilder<List<Budget>>(
-          stream: fs.budgetsOfYear(year),
+          stream: widget.fs.budgetsOfYear(widget.year),
           builder: (context, budgetSnap) {
             final budgets = budgetSnap.data ?? const <Budget>[];
             return _content(transactions, budgets, loading);
@@ -59,7 +68,13 @@ class YearScreen extends StatelessWidget {
 
     final spentByCategory = <String, double>{};
     for (final t in transactions.where((t) => !t.isIncome && !t.isTransfer)) {
+      if (_onlyExpenses && _nonExpenseCategories.contains(t.categoryId)) continue;
       spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
+    }
+
+    final earnedByCategory = <String, double>{};
+    for (final t in transactions.where((t) => t.isIncome && !t.isTransfer)) {
+      earnedByCategory[t.categoryId] = (earnedByCategory[t.categoryId] ?? 0) + t.amount;
     }
 
     final topCategory = spentByCategory.entries.isEmpty
@@ -67,7 +82,7 @@ class YearScreen extends StatelessWidget {
         : (spentByCategory.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first;
 
     final now = DateTime.now();
-    final isCurrentYear = now.year == year;
+    final isCurrentYear = now.year == widget.year;
     final monthsElapsed = isCurrentYear ? now.month : 12;
 
     final monthlyIncome = List<double>.filled(12, 0);
@@ -92,7 +107,7 @@ class YearScreen extends StatelessWidget {
       if (parts.length != 2) continue;
       final m = int.tryParse(parts[1]);
       if (m == null || m < 1 || m > 12) continue;
-      patrimony[m - 1] = b.closingFor(bankId);
+      patrimony[m - 1] = b.closingFor(widget.bankId);
     }
 
     final monthlyAverage = monthsElapsed > 0 ? expense / monthsElapsed : 0.0;
@@ -107,7 +122,7 @@ class YearScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          header,
+          widget.header,
           const SizedBox(height: 22),
           Row(
             children: [
@@ -149,10 +164,26 @@ class YearScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _card(
-            title: 'Despesas por categoria',
-            subtitle: 'Ano de $year',
-            child: loading ? _spinner() : CategoryChart(spent: spentByCategory),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _card(
+                  title: 'Saídas por categoria',
+                  subtitle: 'Ano de ${widget.year}',
+                  action: _expenseFilterButton(),
+                  child: loading ? _spinner() : CategoryChart(spent: spentByCategory),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _card(
+                  title: 'Entradas por categoria',
+                  subtitle: 'Ano de ${widget.year}',
+                  child: loading ? _spinner() : CategoryChart(spent: earnedByCategory),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           _card(
@@ -167,7 +198,7 @@ class YearScreen extends StatelessWidget {
               Expanded(
                 child: _card(
                   title: 'Entradas por mês',
-                  subtitle: 'Ano de $year',
+                  subtitle: 'Ano de ${widget.year}',
                   child: MonthlyChart(values: monthlyIncome, color: AppColors.income),
                 ),
               ),
@@ -175,13 +206,41 @@ class YearScreen extends StatelessWidget {
               Expanded(
                 child: _card(
                   title: 'Saídas por mês',
-                  subtitle: 'Ano de $year',
+                  subtitle: 'Ano de ${widget.year}',
                   child: MonthlyChart(values: monthlyExpense, color: AppColors.expense),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _expenseFilterButton() {
+    return InkWell(
+      onTap: () => setState(() => _onlyExpenses = !_onlyExpenses),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _onlyExpenses ? AppColors.accentSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _onlyExpenses ? AppColors.accent : AppColors.border,
+            width: _onlyExpenses ? 1 : 0.5,
+          ),
+        ),
+        child: Text(
+          'Apenas despesas',
+          style: AppTheme.ui(
+            11,
+            color: _onlyExpenses ? AppColors.accent : AppColors.textMuted,
+            weight: _onlyExpenses ? FontWeight.w500 : FontWeight.w400,
+          ),
+        ),
       ),
     );
   }
@@ -197,7 +256,7 @@ class YearScreen extends StatelessWidget {
         ),
       );
 
-  Widget _card({required String title, String? subtitle, required Widget child}) {
+  Widget _card({required String title, String? subtitle, Widget? action, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -209,11 +268,23 @@ class YearScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(title, style: AppTheme.ui(17, color: AppColors.accent, weight: FontWeight.w500)),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(subtitle, style: AppTheme.ui(12, color: AppColors.textMuted)),
-          ],
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppTheme.ui(17, color: AppColors.accent, weight: FontWeight.w500)),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(subtitle, style: AppTheme.ui(12, color: AppColors.textMuted)),
+                    ],
+                  ],
+                ),
+              ),
+              if (action != null) action,
+            ],
+          ),
           const SizedBox(height: 20),
           child,
         ],
