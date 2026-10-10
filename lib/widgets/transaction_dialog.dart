@@ -84,11 +84,18 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   String? _incomeKind;
   String? _error;
 
-  List<Category> get _options => [
-        ...(widget.isIncome ? Categories.incomes : Categories.expenses),
-        if (widget.bankId != Banks.geral.id)
-          ...Categories.transfersFor(widget.bankId, widget.isIncome),
-      ];
+  List<Category> get _options {
+    final base = widget.isIncome ? Categories.incomes : Categories.expenses;
+    final others = base.where((c) => c.id != 'outros' && c.id != 'outras_receitas').toList();
+    final outros = base.where((c) => c.id == 'outros' || c.id == 'outras_receitas').toList();
+
+    return [
+      ...others,
+      if (widget.bankId != Banks.geral.id)
+        ...Categories.transfersFor(widget.bankId, widget.isIncome),
+      ...outros,
+    ];
+  }
 
   bool get _isTransfer =>
       Categories.isTransfer(_category.id) ||
@@ -1247,10 +1254,14 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         Icon(c.icon, size: 14, color: Color(c.color)),
         const SizedBox(width: 6),
         Expanded(
-          child: Text(
-            c.name,
-            overflow: TextOverflow.ellipsis,
-            style: AppTheme.ui(12, color: selected ? AppColors.textPrimary : AppColors.textSecondary),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              c.name,
+              maxLines: 1,
+              style: AppTheme.ui(12, color: selected ? AppColors.textPrimary : AppColors.textSecondary),
+            ),
           ),
         ),
       ],

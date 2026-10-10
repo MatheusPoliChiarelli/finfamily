@@ -7,6 +7,9 @@ class Bank {
   final Color color;
   final Color onColor;
   final String? logo;
+  final String? shortName;
+
+  String get label => shortName ?? name;
 
   const Bank({
     required this.id,
@@ -15,6 +18,7 @@ class Bank {
     required this.color,
     required this.onColor,
     this.logo,
+    this.shortName,
   });
 }
 
@@ -68,12 +72,12 @@ class Banks {
   static const vr = Bank(
     id: 'vr',
     name: 'Vale-Alimentação',
+    shortName: 'VA',
     short: 'V',
     color: Color(0xFF00B336),
     onColor: Color(0xFF04240D),
     logo: 'assets/banks/vr.png',
   );
-
 
 }
 
