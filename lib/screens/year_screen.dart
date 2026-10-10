@@ -11,6 +11,8 @@ import '../widgets/category_chart.dart';
 import '../widgets/monthly_chart.dart';
 
 const _nonExpenseCategories = {'vise_versa', 'robmotors', 'duplicata', 'transporte_nena'};
+const _viseVersaCategories = {'vise_versa', 'duplicata', 'transporte_nena'};
+const _robMotorsCategories = {'robmotors'};
 
 class YearScreen extends StatefulWidget {
   const YearScreen({
@@ -31,7 +33,7 @@ class YearScreen extends StatefulWidget {
 }
 
 class _YearScreenState extends State<YearScreen> {
-  bool _onlyExpenses = false;
+  String _categoryFilter = 'all';
 
   List<AppTransaction> _filter(List<AppTransaction> all) {
     if (widget.bankId == Banks.geral.id) return all;
@@ -68,7 +70,7 @@ class _YearScreenState extends State<YearScreen> {
 
     final spentByCategory = <String, double>{};
     for (final t in transactions.where((t) => !t.isIncome && !t.isTransfer)) {
-      if (_onlyExpenses && _nonExpenseCategories.contains(t.categoryId)) continue;
+      if (!_passesFilter(t.categoryId)) continue;
       spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
     }
 
@@ -217,28 +219,57 @@ class _YearScreenState extends State<YearScreen> {
     );
   }
 
+  bool _passesFilter(String categoryId) {
+    switch (_categoryFilter) {
+      case 'expenses':
+        return !_nonExpenseCategories.contains(categoryId);
+      case 'vise_versa':
+        return _viseVersaCategories.contains(categoryId);
+      case 'robmotors':
+        return _robMotorsCategories.contains(categoryId);
+      default:
+        return true;
+    }
+  }
+
   Widget _expenseFilterButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _filterChip('Todas', 'all'),
+        const SizedBox(width: 6),
+        _filterChip('Apenas despesas', 'expenses'),
+        const SizedBox(width: 6),
+        _filterChip('Vise Versa', 'vise_versa'),
+        const SizedBox(width: 6),
+        _filterChip('RobMotors', 'robmotors'),
+      ],
+    );
+  }
+
+  Widget _filterChip(String label, String value) {
+    final selected = _categoryFilter == value;
     return InkWell(
-      onTap: () => setState(() => _onlyExpenses = !_onlyExpenses),
+      onTap: () => setState(() => _categoryFilter = value),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         height: 30,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _onlyExpenses ? AppColors.accentSoft : Colors.transparent,
+          color: selected ? AppColors.accentSoft : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _onlyExpenses ? AppColors.accent : AppColors.border,
-            width: _onlyExpenses ? 1 : 0.5,
+            color: selected ? AppColors.accent : AppColors.border,
+            width: selected ? 1 : 0.5,
           ),
         ),
         child: Text(
-          'Apenas despesas',
+          label,
           style: AppTheme.ui(
             11,
-            color: _onlyExpenses ? AppColors.accent : AppColors.textMuted,
-            weight: _onlyExpenses ? FontWeight.w500 : FontWeight.w400,
+            color: selected ? AppColors.accent : AppColors.textMuted,
+            weight: selected ? FontWeight.w500 : FontWeight.w400,
           ),
         ),
       ),
@@ -269,6 +300,7 @@ class _YearScreenState extends State<YearScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(

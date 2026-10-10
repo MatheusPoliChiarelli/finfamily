@@ -25,6 +25,8 @@ import 'year_screen.dart';
 import '../widgets/edit_transaction_dialog.dart';
 
 const _nonExpenseCategories = {'vise_versa', 'robmotors', 'duplicata', 'transporte_nena'};
+const _viseVersaCategories = {'vise_versa', 'duplicata', 'transporte_nena'};
+const _robMotorsCategories = {'robmotors'};
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -52,8 +54,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _year = DateTime.now().year;
   Color? get _bankBorder =>
       _bankId == Banks.geral.id ? null : Banks.byId(_bankId).color.withValues(alpha: 0.55);
-  bool _onlyExpenses = false;
-
+  String _categoryFilter = 'all';
+  String _listFilter = 'all';
+  final _overviewScroll = ScrollController();
+  final _summaryScroll = ScrollController();
 
   @override
   void initState() {
@@ -67,6 +71,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     HardwareKeyboard.instance.removeHandler(_globalKey);
     _dayTimer?.cancel();
     super.dispose();
+
+    _overviewScroll.dispose();
+    _summaryScroll.dispose();
   }
   
 
@@ -472,11 +479,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             : AppColors.accent;
 
     final spentByCategory = <String, double>{};
-    for (final t in transactions.where((t) => !t.isIncome && !t.isTransfer)) {
-      if (_onlyExpenses && _nonExpenseCategories.contains(t.categoryId)) continue;
+    for (final t in dayTransactions.where((t) => !t.isIncome && !t.isTransfer)) {
+      if (!_passesFilter(t.categoryId)) continue;
       spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
     }
 
+    final earnedByCategory = <String, double>{};
+    for (final t in dayTransactions.where((t) => t.isIncome && !t.isTransfer)) {
+      earnedByCategory[t.categoryId] = (earnedByCategory[t.categoryId] ?? 0) + t.amount;
+    }
     final dayLabelText = fullDayLabel(DateTime(_month.year, _month.month, _selectedDay));
 
     final untilYesterday = transactions
@@ -486,6 +497,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final runningBalance = _budget.openingFor(_bankId) + untilYesterday + dayMovement;
 
     return SingleChildScrollView(
+      controller: _overviewScroll,
       padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -494,9 +506,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _metric('Entradas do dia', money(income), AppColors.income, false, Icons.arrow_upward)),
-              const SizedBox(width: 14),
               Expanded(child: _metric('Saídas do dia', money(expense), AppColors.expense, false, Icons.arrow_downward)),
+              const SizedBox(width: 14),
+              Expanded(child: _metric('Entradas do dia', money(income), AppColors.income, false, Icons.arrow_upward)),
               const SizedBox(width: 14),
               Expanded(
                 child: _metric(
@@ -510,42 +522,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final narrow = constraints.maxWidth < 900;
-              final chart = _card(
-                title: 'Despesas por categoria',
-                subtitle: dayLabelText,
-                child: CategoryChart(spent: spentByCategory),
-              );
-              final list = _card(
-                title: 'Lançamentos do dia',
-                subtitle: dayLabelText,
-                child: loading
-                    ? _spinner()
-                    : TransactionList(
-                        transactions: dayTransactions,
-                        onDelete: (id) => _fs!.deleteTransaction(id),
-                        emptyMessage: 'Nada lançado neste dia',
-                        showDate: false,
-                        showBank: _bankId == Banks.geral.id,
-                        onEdit: _editTransaction,
-                      ),
-              );
-              if (narrow) {
-                return Column(children: [chart, const SizedBox(height: 14), list]);
-              }
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: chart),
-                    const SizedBox(width: 14),
-                    Expanded(child: list),
-                  ],
+          _card(
+            title: 'Lançamentos do dia',
+            subtitle: dayLabelText,
+            action: _listFilterButton(),
+            child: TransactionList(
+                    transactions: dayTransactions,
+                    onDelete: (id) => _fs!.deleteTransaction(id),
+                    emptyMessage: 'Nada lançado neste dia',
+                    showDate: false,
+                    showBank: _bankId == Banks.geral.id,
+                    onEdit: _editTransaction,
+                    filter: _listFilter,
+                  ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _card(
+                  title: 'Saídas por categoria',
+                  subtitle: dayLabelText,
+                  action: _expenseFilterButton(),
+                  child: CategoryChart(spent: spentByCategory),
                 ),
-              );
-            },
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _card(
+                  title: 'Entradas por categoria',
+                  subtitle: dayLabelText,
+                  child: CategoryChart(spent: earnedByCategory),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -566,6 +577,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final spentByCategory = <String, double>{};
     for (final t in transactions.where((t) => !t.isIncome && !t.isTransfer)) {
+      if (!_passesFilter(t.categoryId)) continue;
       spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] ?? 0) + t.amount;
     }
 
@@ -615,6 +627,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return SingleChildScrollView(
+      controller: _summaryScroll,
       padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -749,6 +762,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           emptyMessage: 'Nenhum lançamento neste mês',
                           showBank: _bankId == Banks.geral.id,
                           onEdit: _editTransaction,
+                          filter: _listFilter,
                         ),
                 ],
               ],
@@ -760,28 +774,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 
+  bool _passesFilter(String categoryId) {
+    switch (_categoryFilter) {
+      case 'expenses':
+        return !_nonExpenseCategories.contains(categoryId);
+      case 'vise_versa':
+        return _viseVersaCategories.contains(categoryId);
+      case 'robmotors':
+        return _robMotorsCategories.contains(categoryId);
+      default:
+        return true;
+    }
+  }
+
   Widget _expenseFilterButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _filterChip('Todas', 'all'),
+        const SizedBox(width: 6),
+        _filterChip('Apenas despesas', 'expenses'),
+        const SizedBox(width: 6),
+        _filterChip('Vise Versa', 'vise_versa'),
+        const SizedBox(width: 6),
+        _filterChip('RobMotors', 'robmotors'),
+      ],
+    );
+  }
+
+  Widget _listFilterButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _listChip('Todas', 'all'),
+        const SizedBox(width: 6),
+        _listChip('Entradas', 'income'),
+        const SizedBox(width: 6),
+        _listChip('Saídas', 'expense'),
+      ],
+    );
+  }
+
+  Widget _listChip(String label, String value) {
+    final selected = _listFilter == value;
     return InkWell(
-      onTap: () => setState(() => _onlyExpenses = !_onlyExpenses),
+      onTap: () => setState(() => _listFilter = value),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         height: 30,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _onlyExpenses ? AppColors.accentSoft : Colors.transparent,
+          color: selected ? AppColors.accentSoft : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _onlyExpenses ? AppColors.accent : AppColors.border,
-            width: _onlyExpenses ? 1 : 0.5,
+            color: selected ? AppColors.accent : AppColors.border,
+            width: selected ? 1 : 0.5,
           ),
         ),
         child: Text(
-          'Apenas despesas',
+          label,
           style: AppTheme.ui(
             11,
-            color: _onlyExpenses ? AppColors.accent : AppColors.textMuted,
-            weight: _onlyExpenses ? FontWeight.w500 : FontWeight.w400,
+            color: selected ? AppColors.accent : AppColors.textMuted,
+            weight: selected ? FontWeight.w500 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, String value) {
+    final selected = _categoryFilter == value;
+    return InkWell(
+      onTap: () => setState(() => _categoryFilter = value),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.border,
+            width: selected ? 1 : 0.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTheme.ui(
+            11,
+            color: selected ? AppColors.accent : AppColors.textMuted,
+            weight: selected ? FontWeight.w500 : FontWeight.w400,
           ),
         ),
       ),
@@ -821,6 +906,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -838,7 +924,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          Flexible(child: SingleChildScrollView(child: child)),
+          child,
         ],
       ),
     );

@@ -15,6 +15,7 @@ class TransactionList extends StatefulWidget {
     this.emptyMessage = 'Nenhum lançamento',
     this.showDate = true,
     this.showBank = false,
+    this.filter = 'all',
   });
 
   final List<AppTransaction> transactions;
@@ -23,17 +24,16 @@ class TransactionList extends StatefulWidget {
   final String emptyMessage;
   final bool showDate;
   final bool showBank;
+  final String filter;
 
   @override
   State<TransactionList> createState() => _TransactionListState();
 }
 
 class _TransactionListState extends State<TransactionList> {
-  String _filter = 'all';
-
   List<AppTransaction> get _filtered {
-    if (_filter == 'income') return widget.transactions.where((t) => t.isIncome).toList();
-    if (_filter == 'expense') return widget.transactions.where((t) => !t.isIncome).toList();
+    if (widget.filter == 'income') return widget.transactions.where((t) => t.isIncome).toList();
+    if (widget.filter == 'expense') return widget.transactions.where((t) => !t.isIncome).toList();
     return widget.transactions;
   }
 
@@ -44,23 +44,12 @@ class _TransactionListState extends State<TransactionList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            _filterTab('Todas', 'all'),
-            const SizedBox(width: 6),
-            _filterTab('Entradas', 'income'),
-            const SizedBox(width: 6),
-            _filterTab('Saídas', 'expense'),
-          ],
-        ),
-        const SizedBox(height: 14),
         if (list.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
               child: Text(
-                _filter == 'all' ? widget.emptyMessage : 'Nada neste filtro',
+                widget.filter == 'all' ? widget.emptyMessage : 'Nada neste filtro',
                 style: AppTheme.ui(13, color: AppColors.textMuted),
               ),
             ),
@@ -71,34 +60,7 @@ class _TransactionListState extends State<TransactionList> {
     );
   }
 
-  Widget _filterTab(String label, String value) {
-    final selected = _filter == value;
-    return InkWell(
-      onTap: () => setState(() => _filter = value),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentSoft : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
-            width: selected ? 1 : 0.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTheme.ui(
-            11,
-            color: selected ? AppColors.accent : AppColors.textMuted,
-            weight: selected ? FontWeight.w500 : FontWeight.w400,
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _row(AppTransaction t) {
     final meta = widget.showDate ? dayLabel(t.date) : '';
@@ -123,7 +85,8 @@ class _TransactionListState extends State<TransactionList> {
               child: Icon(Categories.byId(t.categoryId).icon, size: 16, color: Color(t.categoryColor)),
             ),
             const SizedBox(width: 12),
-            Expanded(
+            SizedBox(
+              width: 260,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -145,6 +108,17 @@ class _TransactionListState extends State<TransactionList> {
                 ],
               ),
             ),
+            const SizedBox(width: 20),
+            SizedBox(
+              width: 110,
+              child: Text(
+                '${t.isIncome ? '+' : '-'} ${plain(t.amount)}',
+                textAlign: TextAlign.left,
+                style: AppTheme.uiMoney(13, color: t.isIncome ? AppColors.income : AppColors.expense),
+              ),
+            ),
+            const SizedBox(width: 20),
+            const Spacer(),
             if (widget.showBank) ...[
               SizedBox(
                 width: 132,
@@ -181,16 +155,7 @@ class _TransactionListState extends State<TransactionList> {
                         ),
                       ),
               ),
-              const SizedBox(width: 10),
             ],
-            SizedBox(
-              width: 90,
-              child: Text(
-                '${t.isIncome ? '+' : '-'} ${plain(t.amount)}',
-                textAlign: TextAlign.right,
-                style: AppTheme.uiMoney(13, color: t.isIncome ? AppColors.income : AppColors.expense),
-              ),
-            ),
             const SizedBox(width: 6),
             InkWell(
               onTap: () => widget.onDelete(t.id),
