@@ -51,7 +51,6 @@ class _TransactionDialog extends StatefulWidget {
   final List<Car> activeCars;
   final List<Product> products;
 
-
   @override
   State<_TransactionDialog> createState() => _TransactionDialogState();
 }
@@ -67,6 +66,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   final _amountFocus = FocusNode();
   final _dialogFocus = FocusNode();
   final _quantityFocus = FocusNode();
+  final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   final _scroll = ScrollController();
   final _gridKey = GlobalKey();
 
@@ -84,7 +85,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   String? _incomeKind;
   String? _error;
 
-  List<Category> get _options {
+  List<Category> get _allOptions {
     final base = widget.isIncome ? Categories.incomes : Categories.expenses;
     final others = base.where((c) => c.id != 'outros' && c.id != 'outras_receitas').toList();
     final outros = base.where((c) => c.id == 'outros' || c.id == 'outras_receitas').toList();
@@ -95,6 +96,12 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         ...Categories.transfersFor(widget.bankId, widget.isIncome),
       ...outros,
     ];
+  }
+
+  List<Category> get _options {
+    final query = _search.text.trim().toLowerCase();
+    if (query.isEmpty) return _allOptions;
+    return _allOptions.where((c) => c.name.toLowerCase().contains(query)).toList();
   }
 
   bool get _isTransfer =>
@@ -113,7 +120,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   bool get _isCarExpense => !widget.isIncome && _isRobMotors;
   bool get _isCarIncome => widget.isIncome && _isRobMotors;
   bool get _isNewCar => _isCarExpense && _carId == _newId;
-  bool get _isCarSale => _isCarIncome && _incomeKind == 'venda';
+  bool get _isCarSale => false;
 
   bool get _isFashionExpense => !widget.isIncome && _isViseVersa;
   bool get _isFashionIncome => widget.isIncome && _isViseVersa;
@@ -322,6 +329,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       if (next != 'amount') _applyListIndex();
     });
 
+    if (_step != 'category') _search.clear();
+
     if (next == 'amount') {
       WidgetsBinding.instance.addPostFrameCallback((_) => _amountFocus.requestFocus());
     } else if (next == 'quantity') {
@@ -344,6 +353,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     final key = event.logicalKey;
 
     if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+      if (_searchFocus.hasFocus) return;
       _nextStep();
       return;
     }
@@ -351,6 +361,12 @@ class _TransactionDialogState extends State<_TransactionDialog> {
 
     final vertical = _gridStep ? 3 : 1;
 
+    if (key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowUp) {
+      _dialogFocus.requestFocus();
+    }
     if (key == LogicalKeyboardKey.arrowRight) _move(1);
     if (key == LogicalKeyboardKey.arrowLeft) _move(-1);
     if (key == LogicalKeyboardKey.arrowDown) _move(vertical);
@@ -363,7 +379,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     _category = _options.first;
     _bankId = widget.bankId;
     _listIndex = 0;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _dialogFocus.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _searchFocus.requestFocus());
   }
 
   @override
@@ -377,6 +393,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     _amountFocus.dispose();
     _dialogFocus.dispose();
     _quantityFocus.dispose();
+    _search.dispose();
+    _searchFocus.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -386,11 +404,6 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     if (_isCarExpense) {
       if (_costType == 'outro') return _description.text.trim();
       return CarCostTypes.byId(_costType).name;
-    }
-    if (_isCarIncome) {
-      if (_incomeKind == 'comissao') return 'Comissão';
-      final car = widget.activeCars.firstWhere((c) => c.id == _carId);
-      return 'Venda do ${car.name}';
     }
     if (_isFashionExpense) {
       return 'Compra de $_qty $_finalBrand $_finalModel'.trim();
@@ -404,14 +417,6 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   }
 
   void _save() {
-    if (_isCarIncome && _incomeKind == null) {
-      setState(() => _error = 'Escolha o tipo da entrada');
-      return;
-    }
-    if (_isCarSale && _carId == null) {
-      setState(() => _error = 'Escolha o carro vendido');
-      return;
-    }
     if (_isFashionIncome && !_fashionNoStock && _productId == null) {
       setState(() => _error = 'Escolha a peça vendida');
       return;
@@ -488,16 +493,11 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     if (_isFashionIncome) {
       return _fashionNoStock || _saleUndefined || _selectedProduct != null;
     }
-    if (!_isCarIncome) return true;
-    if (_incomeKind == 'comissao') return true;
-    if (_isCarSale && _carId != null) return true;
-    return false;
+    return true;
   }
 
   String get _amountLabel {
-    if (_isCarSale) return 'Valor da venda';
     if (_isFashionExpense) return 'Valor total pago';
-    if (_isFashionIncome) return 'Valor total recebido';
     return 'Valor';
   }
 
@@ -548,41 +548,31 @@ class _TransactionDialogState extends State<_TransactionDialog> {
               children: [
                 _headerRow(),
                 const SizedBox(height: 24),
-                _grid(_options.map((c) => _categoryChip(c)).toList(), key: _gridKey),
-                if (_isCarIncome) ...[
-                  const SizedBox(height: 22),
-                  _label('Tipo da entrada'),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _radioTile('Comissão', Icons.handshake_outlined,
-                            _incomeKind == 'comissao', () {
-                          setState(() {
-                            _incomeKind = 'comissao';
-                            _carId = null;
-                          });
-                        }),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _radioTile('Venda de carro', Icons.sell_outlined,
-                            _incomeKind == 'venda', () {
-                          setState(() => _incomeKind = 'venda');
-                        }),
-                      ),
-                    ],
+                TextField(
+                  controller: _search,
+                  focusNode: _searchFocus,
+                  style: AppTheme.ui(14),
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) => setState(() {
+                    _listIndex = 0;
+                    if (_options.isNotEmpty) _category = _options.first;
+                  }),
+                  onSubmitted: (_) {
+                    if (_options.isEmpty) return;
+                    _searchFocus.unfocus();
+                    _nextStep();
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Buscar categoria',
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(left: 14, right: 8),
+                      child: Icon(Icons.search, size: 17, color: AppColors.textMuted),
+                    ),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                   ),
-                ],
-                if (_isCarSale) ...[
-                  const SizedBox(height: 22),
-                  _label('Carro vendido'),
-                  const SizedBox(height: 10),
-                  if (widget.activeCars.isEmpty)
-                    _emptyBox('Nenhum carro ativo no estoque')
-                  else
-                    ...widget.activeCars.map(_carOption),
-                ],
+                ),
+                const SizedBox(height: 12),
+                _grid(_options.map((c) => _categoryChip(c)).toList(), key: _gridKey),
                 if (_isCarExpense) ...[
                   const SizedBox(height: 22),
                   _label('Carro', active: _step == 'car'),
@@ -741,27 +731,15 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                     _quantityField(),
                   ],
                 ],
-                if (_fashionNoStock) ...[
-                  const SizedBox(height: 18),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceRaised,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border, width: 0.5),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, size: 15, color: AppColors.textMuted),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Recebimento de cartão, sem baixa no estoque',
-                            style: AppTheme.ui(12, color: AppColors.textMuted),
-                          ),
-                        ),
-                      ],
-                    ),
+                if (_needsFreeText) ...[
+                  const SizedBox(height: 22),
+                  _label('Descrição'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _description,
+                    style: AppTheme.ui(14),
+                    onSubmitted: (_) => _save(),
+                    decoration: const InputDecoration(hintText: 'Do que se trata'),
                   ),
                 ],
                 if (_showAmount) ...[
@@ -808,17 +786,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                     ),
                   ],
                 ],
-                if (_needsFreeText) ...[
-                  const SizedBox(height: 22),
-                  _label('Descrição'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _description,
-                    style: AppTheme.ui(14),
-                    onSubmitted: (_) => _save(),
-                    decoration: const InputDecoration(hintText: 'Do que se trata'),
-                  ),
-                ],
+
                 if (_error != null) ...[
                   const SizedBox(height: 14),
                   Text(_error!, style: AppTheme.ui(13, color: AppColors.expense)),
@@ -1125,8 +1093,13 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         selected: selected,
         onTap: () => setState(() {
           _carId = car.id;
-          _step = 'car';
-          _listIndex = widget.activeCars.indexWhere((o) => o.id == car.id) + 1;
+          if (_isCarIncome) {
+            _step = 'carSale';
+            _listIndex = widget.activeCars.indexWhere((o) => o.id == car.id);
+          } else {
+            _step = 'car';
+            _listIndex = widget.activeCars.indexWhere((o) => o.id == car.id) + 1;
+          }
         }),
         height: 46,
         children: [
@@ -1246,7 +1219,6 @@ class _TransactionDialogState extends State<_TransactionDialog> {
         _productId = null;
         _brandChoice = null;
         _modelChoice = null;
-        _incomeKind = null;
       }),
       children: [
         _radio(selected),

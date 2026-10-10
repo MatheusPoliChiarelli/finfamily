@@ -68,12 +68,13 @@ class Categories {
   ];
 
   static const incomes = <Category>[
-    Category(id: 'robmotors', name: 'RobMotors', icon: Icons.directions_car_outlined, color: 0xFF378ADD, isIncome: true),
-    Category(id: 'vise_versa', name: 'Vise Versa', icon: Icons.checkroom_outlined, color: 0xFFED93B1, isIncome: true),
-    Category(id: 'joao', name: 'João', icon: Icons.person_outline, color: 0xFF85B7EB, isIncome: true),
-    Category(id: 'matheus', name: 'Matheus', icon: Icons.person_outline, color: 0xFF7F77DD, isIncome: true),
+    Category(id: 'vise_versa', name: 'Venda Roupa', icon: Icons.checkroom_outlined, color: 0xFFED93B1, isIncome: true),
     Category(id: 'motoboy', name: 'Motoboy', icon: Icons.two_wheeler_outlined, color: 0xFFEF9F27, isIncome: true),
     Category(id: 'correios', name: 'Correios', icon: Icons.local_shipping_outlined, color: 0xFF5DCAA5, isIncome: true),
+    Category(id: 'robmotors', name: 'Venda Carro', icon: Icons.directions_car_outlined, color: 0xFF378ADD, isIncome: true),
+    Category(id: 'comissao_carro', name: 'Comissão Carro', icon: Icons.handshake_outlined, color: 0xFF378ADD, isIncome: true),
+    Category(id: 'joao', name: 'João', icon: Icons.person_outline, color: 0xFF85B7EB, isIncome: true),
+    Category(id: 'matheus', name: 'Matheus', icon: Icons.person_outline, color: 0xFF7F77DD, isIncome: true),
     Category(id: 'investimentos', name: 'Investimentos', icon: Icons.trending_up, color: 0xFF97C459, isIncome: true),
     Category(id: 'cartao_rosangela', name: 'Cartão Rosângela', icon: Icons.credit_card_outlined, color: 0xFFED93B1, isIncome: true),
     Category(id: 'outras_receitas', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780, isIncome: true),
