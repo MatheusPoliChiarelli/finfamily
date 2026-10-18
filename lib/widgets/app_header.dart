@@ -30,6 +30,7 @@ class AppHeader extends StatelessWidget {
     this.showBalances = true,
     this.titleOverride,
     this.bankBorder,
+    this.infoAction,
   });
 
   final DateTime month;
@@ -54,8 +55,9 @@ class AppHeader extends StatelessWidget {
   final bool showBalances;
   final String? titleOverride;
   final Color? bankBorder;
+  final Widget? infoAction;
 
-    @override
+  @override
   Widget build(BuildContext context) {
     final hasBoth = openingBalance != 0 && closingBalance != 0;
     final monthBalance = hasBoth ? closingBalance - openingBalance : null;
@@ -98,47 +100,57 @@ class AppHeader extends StatelessWidget {
         ),
         if (showBalances) ...[
           const SizedBox(height: 18),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                if (showDayBalance)
-                  BalanceField(
-                    label: 'Saldo do dia',
-                    icon: Icons.today_outlined,
-                    value: dayBalance,
-                    valueColor: dayBalance >= 0 ? AppColors.income : AppColors.expense,
-                    borderColor: bankBorder,
-                  )
-                else ...[
-                  BalanceField(
-                    key: ValueKey('open-${monthKey(month)}-$selectedBankId-$openingBalance'),
-                    label: 'Saldo inicial do mês',
-                    icon: Icons.savings_outlined,
-                    value: openingBalance,
-                    onSave: balancesEditable ? onSaveOpeningBalance : null,
-                    borderColor: bankBorder,
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      if (showDayBalance)
+                        BalanceField(
+                          label: 'Saldo do dia',
+                          icon: Icons.today_outlined,
+                          value: dayBalance,
+                          valueColor: dayBalance >= 0 ? AppColors.income : AppColors.expense,
+                          borderColor: bankBorder,
+                        )
+                      else ...[
+                        BalanceField(
+                          key: ValueKey('open-${monthKey(month)}-$selectedBankId-$openingBalance'),
+                          label: 'Saldo inicial do mês',
+                          icon: Icons.savings_outlined,
+                          value: openingBalance,
+                          onSave: balancesEditable ? onSaveOpeningBalance : null,
+                          borderColor: bankBorder,
+                        ),
+                        const SizedBox(width: 12),
+                        BalanceField(
+                          key: ValueKey('close-${monthKey(month)}-$selectedBankId-$closingBalance'),
+                          label: 'Saldo final do mês',
+                          icon: Icons.account_balance_outlined,
+                          value: closingBalance,
+                          onSave: balancesEditable ? onSaveClosingBalance : null,
+                          borderColor: bankBorder,
+                        ),
+                        const SizedBox(width: 12),
+                        BalanceField(
+                          label: 'Balanço do mês',
+                          icon: Icons.swap_vert,
+                          value: monthBalance,
+                          valueColor: balanceColor,
+                          borderColor: balanceColor,
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  BalanceField(
-                    key: ValueKey('close-${monthKey(month)}-$selectedBankId-$closingBalance'),
-                    label: 'Saldo final do mês',
-                    icon: Icons.account_balance_outlined,
-                    value: closingBalance,
-                    onSave: balancesEditable ? onSaveClosingBalance : null,
-                    borderColor: bankBorder,
-                  ),
-                  const SizedBox(width: 12),
-                  BalanceField(
-                    label: 'Balanço do mês',
-                    icon: Icons.swap_vert,
-                    value: monthBalance,
-                    valueColor: balanceColor,
-                    borderColor: balanceColor,
-                  ),
-                ],
+                ),
+              ),
+              if (infoAction != null) ...[
+                const SizedBox(width: 16),
+                infoAction!,
               ],
-            ),
+            ],
           ),
         ],
         if (showDayStrip) ...[
@@ -270,7 +282,6 @@ class AppHeader extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _arrow(IconData icon, VoidCallback onTap, Color color) {
     return InkWell(

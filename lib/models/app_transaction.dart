@@ -66,7 +66,8 @@ class AppTransaction {
       categoryId.startsWith('transfer_') ||
       categoryId == 'motoboy' ||
       categoryId == 'correios' ||
-      categoryId == 'cartao_rosangela';
+      categoryId == 'cartao_rosangela' ||
+      categoryId == 'reembolso';
       
   bool get isRecurring => recurringId != null;
 

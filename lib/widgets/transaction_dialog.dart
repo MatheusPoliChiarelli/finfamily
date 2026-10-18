@@ -109,7 +109,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       Categories.isTransfer(_category.id) ||
       _category.id == 'motoboy' ||
       _category.id == 'correios' ||
-      _category.id == 'cartao_rosangela';
+      _category.id == 'cartao_rosangela' ||
+      _category.id == 'reembolso';
 
   bool get _fashionNoStock => _isFashionIncome;
 

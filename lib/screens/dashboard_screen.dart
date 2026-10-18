@@ -456,6 +456,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       showBalances: _section != 'year',
       titleOverride: _section == 'year' ? '$_year' : null,
       bankBorder: _bankBorder,
+      infoAction: _section == 'summary'
+          ? InkWell(
+              onTap: _showMetricsInfo,
+              customBorder: const CircleBorder(),
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.info_outline, size: 18, color: AppColors.textMuted),
+              ),
+            )
+          : null,
     );
   }
 
@@ -787,6 +797,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
       default:
         return true;
     }
+  }
+
+  void _showMetricsInfo() {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Como as métricas são calculadas', style: AppTheme.display(22)),
+                const SizedBox(height: 18),
+                _infoBlock(
+                  'Fora das métricas',
+                  'Transferências entre contas, Motoboy, Correios, Cartão Rosângela e Reembolso não entram em entradas, saídas, balanço do dia nem nos gráficos por categoria. São valores que saem e voltam, ou que apenas circulam entre as contas, sem alterar o patrimônio.',
+                ),
+                const SizedBox(height: 16),
+                _infoBlock(
+                  'Dentro do saldo',
+                  'Esses mesmos lançamentos aparecem na lista e entram no saldo do dia, porque o dinheiro de fato entrou ou saiu da conta e precisa bater com o extrato do banco.',
+                ),
+                const SizedBox(height: 16),
+                _infoBlock(
+                  'Filtros do gráfico',
+                  'Todas mostra tudo. Apenas despesas tira compra de roupa, compra de carro, duplicata e transporte. Vise Versa mostra só compra de roupa, duplicata e transporte. RobMotors mostra só compra de carro.',
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Entendi'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoBlock(String title, String body) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: AppTheme.ui(13, color: AppColors.accent, weight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        Text(body, style: AppTheme.ui(13, color: AppColors.textSecondary)),
+      ],
+    );
   }
 
   Widget _expenseFilterButton() {
