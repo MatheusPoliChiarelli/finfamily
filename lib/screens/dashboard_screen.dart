@@ -116,7 +116,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _globalKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
     if (_typing) return false;
-    if (ModalRoute.of(context)?.isCurrent != true) return false;
+    if (!mounted) return false;
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return false;
 
     final key = event.logicalKey;
 

@@ -66,6 +66,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
   final _amountFocus = FocusNode();
   final _dialogFocus = FocusNode();
   final _quantityFocus = FocusNode();
+  final _descriptionFocus = FocusNode();
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   final _scroll = ScrollController();
@@ -207,7 +208,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     if (_isCarExpense) {
       return ['category', 'car', if (!_isNewCar && _carId != null) 'costType', 'amount'];
     }
-    return ['category', 'amount'];
+    return ['category', if (_needsFreeText) 'description', 'amount'];
   }
 
   int get _currentListLength {
@@ -333,6 +334,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
 
     if (next == 'amount') {
       WidgetsBinding.instance.addPostFrameCallback((_) => _amountFocus.requestFocus());
+    } else if (next == 'description') {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _descriptionFocus.requestFocus());
     } else if (next == 'quantity') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _quantityFocus.requestFocus();
@@ -357,7 +360,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       _nextStep();
       return;
     }
-    if (_step == 'amount' || _step == 'quantity') return;
+    if (_step == 'amount' || _step == 'quantity' || _step == 'description') return;
 
     final vertical = _gridStep ? 3 : 1;
 
@@ -393,6 +396,7 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     _amountFocus.dispose();
     _dialogFocus.dispose();
     _quantityFocus.dispose();
+    _descriptionFocus.dispose();
     _search.dispose();
     _searchFocus.dispose();
     _scroll.dispose();
@@ -448,11 +452,6 @@ class _TransactionDialogState extends State<_TransactionDialog> {
     final value = parseCurrency(_amount.text);
     if (value <= 0) {
       setState(() => _error = 'Informe um valor válido');
-      return;
-    }
-
-    if (_needsFreeText && _description.text.trim().isEmpty) {
-      setState(() => _error = 'Informe a descrição');
       return;
     }
 
@@ -518,6 +517,8 @@ class _TransactionDialogState extends State<_TransactionDialog> {
       case 'costType':
         return 'escolha o tipo do custo, enter avança';
       case 'quantity':
+        return 'digite e enter avança';
+      case 'description':
         return 'digite e enter avança';
       case 'saleBrand':
         return 'escolha a marca, enter avança';
@@ -733,12 +734,13 @@ class _TransactionDialogState extends State<_TransactionDialog> {
                 ],
                 if (_needsFreeText) ...[
                   const SizedBox(height: 22),
-                  _label('Descrição'),
+                  _label('Descrição', active: _step == 'description'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _description,
+                    focusNode: _descriptionFocus,
                     style: AppTheme.ui(14),
-                    onSubmitted: (_) => _save(),
+                    onSubmitted: (_) => _nextStep(),
                     decoration: const InputDecoration(hintText: 'Do que se trata'),
                   ),
                 ],
