@@ -17,12 +17,12 @@ import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_list.dart';
 import 'cars_screen.dart';
 import '../models/product.dart';
-import 'vise_versa_screen.dart';
 import 'package:flutter/services.dart';
 import '../widgets/daily_chart.dart';
 import 'dart:async';
 import 'year_screen.dart';
 import '../widgets/edit_transaction_dialog.dart';
+import '../widgets/calculator_panel.dart';
 
 const _nonExpenseCategories = {'vise_versa', 'robmotors', 'duplicata', 'transporte_nena'};
 const _viseVersaCategories = {'vise_versa', 'duplicata', 'transporte_nena'};
@@ -52,10 +52,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _dayBuffer = '';
   Timer? _dayTimer;
   int _year = DateTime.now().year;
+  double _yearOpening = 0;
+  double _yearClosing = 0;
   Color? get _bankBorder =>
       _bankId == Banks.geral.id ? null : Banks.byId(_bankId).color.withValues(alpha: 0.55);
   String _categoryFilter = 'all';
   String _listFilter = 'all';
+  bool _showCalculator = false;
   final _overviewScroll = ScrollController();
   final _summaryScroll = ScrollController();
 
@@ -121,6 +124,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (route == null || !route.isCurrent) return false;
 
     final key = event.logicalKey;
+
+    if (_showCalculator) return false;
+
+    if (key == LogicalKeyboardKey.add ||
+        key == LogicalKeyboardKey.numpadAdd ||
+        key == LogicalKeyboardKey.equal) {
+      setState(() => _showCalculator = true);
+      return true;
+    }
 
     if (key == LogicalKeyboardKey.arrowLeft) {
       _shiftMonth(-1);
@@ -280,7 +292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     await _fs!.addTransaction(transaction);
 
-    if (transaction.newCarModel != null) {
+    if (transaction.newCarModel != null && transaction.newCarModel!.isNotEmpty) {
       await _fs!.addCar(Car(
         id: '',
         name: '${transaction.newCarBrand} ${transaction.newCarModel}'.trim(),
@@ -397,28 +409,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             AppSidebar(selected: _section, onSelect: _onSection, onSignOut: _auth.signOut),
             Expanded(
-              child: StreamBuilder<Budget>(
-                  stream: _fs!.budgetOfMonth(_month),
-                  builder: (context, budgetSnap) {
-                    _budget = budgetSnap.data ?? Budget(month: monthKey(_month), limits: const {});
-                    return StreamBuilder<List<AppTransaction>>(
-                      stream: _fs!.transactionsOfMonth(_month),
-                      builder: (context, txSnap) {
-                        final transactions = _filterByBank(txSnap.data ?? const <AppTransaction>[]);
-                        final loading = txSnap.connectionState == ConnectionState.waiting;
-                        return switch (_section) {
-                          'summary' => _summaryView(transactions, loading),
-                          'year' => YearScreen(fs: _fs!, bankId: _bankId, year: _year, header: _header()),
-                          'cars' => CarsScreen(fs: _fs!),
-                          'fashion' => ViseVersaScreen(fs: _fs!),
-                
-                          _ => _overview(transactions, loading),
-                        };
-                      },
-                    );
-                  },
-                ),
+              child: Stack(
+                children: [
+                  StreamBuilder<Budget>(
+                    stream: _fs!.budgetOfMonth(_month),
+                    builder: (context, budgetSnap) {
+                      _budget = budgetSnap.data ?? Budget(month: monthKey(_month), limits: const {});
+                      return StreamBuilder<List<AppTransaction>>(
+                        stream: _fs!.transactionsOfMonth(_month),
+                        builder: (context, txSnap) {
+                          final transactions = _filterByBank(txSnap.data ?? const <AppTransaction>[]);
+                          final loading = txSnap.connectionState == ConnectionState.waiting;
+                          return switch (_section) {
+                            'summary' => _summaryView(transactions, loading),
+                            'year' => YearScreen(
+                                fs: _fs!,
+                                bankId: _bankId,
+                                year: _year,
+                                headerBuilder: _header,
+                                onBalances: (o, c) {
+                                  if (_yearOpening != o || _yearClosing != c) {
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      if (mounted) setState(() {
+                                        _yearOpening = o;
+                                        _yearClosing = c;
+                                      });
+                                    });
+                                  }
+                                },
+                              ),
+                            'cars' => CarsScreen(fs: _fs!),
+                            _ => _overview(transactions, loading),
+                          };
+                        },
+                      );
+                    },
+                  ),
+                  if (_showCalculator)
+                    Positioned(
+                      right: 28,
+                      bottom: 28,
+                      child: CalculatorPanel(
+                        onClose: () => setState(() => _showCalculator = false),
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -453,7 +490,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _ => 'Visão geral',
       },
       showDayStrip: _section == 'overview',
-      showBalances: _section != 'year',
+      showBalances: true,
+      yearOpening: _section == 'year' ? _yearOpening : null,
+      yearClosing: _section == 'year' ? _yearClosing : null,
       titleOverride: _section == 'year' ? '$_year' : null,
       bankBorder: _bankBorder,
       infoAction: _section == 'summary'
@@ -565,7 +604,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _card(
                   title: 'Entradas por categoria',
                   subtitle: dayLabelText,
-                  child: CategoryChart(spent: earnedByCategory),
+                  child: CategoryChart(spent: earnedByCategory, isIncome: true),
                 ),
               ),
             ],

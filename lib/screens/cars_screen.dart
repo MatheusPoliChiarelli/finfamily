@@ -143,7 +143,7 @@ class _CarsScreenState extends State<CarsScreen> {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Expanded(child: _miniStat('Total desembolsado nos ativos', money(capital + activeCosts))),
+                      Expanded(child: _miniStat('Total investido nos ativos', money(capital + activeCosts))),
                       const SizedBox(width: 14),
                       Expanded(child: _miniStat('Carros ativos', '${active.length}')),
                       const SizedBox(width: 14),

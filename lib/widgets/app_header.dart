@@ -31,6 +31,8 @@ class AppHeader extends StatelessWidget {
     this.titleOverride,
     this.bankBorder,
     this.infoAction,
+    this.yearOpening,
+    this.yearClosing,
   });
 
   final DateTime month;
@@ -56,11 +58,17 @@ class AppHeader extends StatelessWidget {
   final String? titleOverride;
   final Color? bankBorder;
   final Widget? infoAction;
+  final double? yearOpening;
+  final double? yearClosing;
 
   @override
   Widget build(BuildContext context) {
-    final hasBoth = openingBalance != 0 && closingBalance != 0;
-    final monthBalance = hasBoth ? closingBalance - openingBalance : null;
+    final isYear = yearOpening != null;
+    final opening = isYear ? yearOpening! : openingBalance;
+    final closing = isYear ? yearClosing! : closingBalance;
+
+    final hasBoth = opening != 0 && closing != 0;
+    final monthBalance = hasBoth ? closing - opening : null;
     final balanceColor = monthBalance == null
         ? null
         : (monthBalance >= 0 ? AppColors.income : AppColors.expense);
@@ -117,25 +125,25 @@ class AppHeader extends StatelessWidget {
                         )
                       else ...[
                         BalanceField(
-                          key: ValueKey('open-${monthKey(month)}-$selectedBankId-$openingBalance'),
-                          label: 'Saldo inicial do mês',
+                          key: ValueKey('open-${monthKey(month)}-$selectedBankId-$opening-$isYear'),
+                          label: isYear ? 'Saldo inicial do ano' : 'Saldo inicial do mês',
                           icon: Icons.savings_outlined,
-                          value: openingBalance,
-                          onSave: balancesEditable ? onSaveOpeningBalance : null,
+                          value: opening,
+                          onSave: (balancesEditable && !isYear) ? onSaveOpeningBalance : null,
                           borderColor: bankBorder,
                         ),
                         const SizedBox(width: 12),
                         BalanceField(
-                          key: ValueKey('close-${monthKey(month)}-$selectedBankId-$closingBalance'),
-                          label: 'Saldo final do mês',
+                          key: ValueKey('close-${monthKey(month)}-$selectedBankId-$closing-$isYear'),
+                          label: isYear ? 'Saldo final do ano' : 'Saldo final do mês',
                           icon: Icons.account_balance_outlined,
-                          value: closingBalance,
-                          onSave: balancesEditable ? onSaveClosingBalance : null,
+                          value: closing,
+                          onSave: (balancesEditable && !isYear) ? onSaveClosingBalance : null,
                           borderColor: bankBorder,
                         ),
                         const SizedBox(width: 12),
                         BalanceField(
-                          label: 'Balanço do mês',
+                          label: isYear ? 'Balanço do ano' : 'Balanço do mês',
                           icon: Icons.swap_vert,
                           value: monthBalance,
                           valueColor: balanceColor,

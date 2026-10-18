@@ -20,13 +20,15 @@ class YearScreen extends StatefulWidget {
     required this.fs,
     required this.bankId,
     required this.year,
-    required this.header,
+    required this.headerBuilder,
+    required this.onBalances,
   });
 
   final FirestoreService fs;
   final String bankId;
   final int year;
-  final Widget header;
+  final Widget Function() headerBuilder;
+  final void Function(double opening, double closing) onBalances;
 
   @override
   State<YearScreen> createState() => _YearScreenState();
@@ -104,13 +106,27 @@ class _YearScreenState extends State<YearScreen> {
     }
 
     final patrimony = List<double>.filled(12, 0);
+    var yearOpening = 0.0;
+    var yearClosing = 0.0;
+    var lastMonthWithClosing = 0;
+
     for (final b in budgets) {
       final parts = b.month.split('-');
       if (parts.length != 2) continue;
       final m = int.tryParse(parts[1]);
       if (m == null || m < 1 || m > 12) continue;
-      patrimony[m - 1] = b.closingFor(widget.bankId);
+
+      final closing = b.closingFor(widget.bankId);
+      patrimony[m - 1] = closing;
+
+      if (m == 1) yearOpening = b.openingFor(widget.bankId);
+      if (closing != 0 && m > lastMonthWithClosing) {
+        lastMonthWithClosing = m;
+        yearClosing = closing;
+      }
     }
+
+    widget.onBalances(yearOpening, yearClosing);
 
     final monthlyAverage = monthsElapsed > 0 ? expense / monthsElapsed : 0.0;
 
@@ -124,23 +140,13 @@ class _YearScreenState extends State<YearScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          widget.header,
+          widget.headerBuilder(),
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _metric('Entradas do ano', money(income), AppColors.income, Icons.arrow_upward)),
+              Expanded(child: _metric('Entradas', money(income), AppColors.income, Icons.arrow_upward)),
               const SizedBox(width: 14),
-              Expanded(child: _metric('Saídas do ano', money(expense), AppColors.expense, Icons.arrow_downward)),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _metric(
-                  'Balanço do ano',
-                  money(balance),
-                  balance >= 0 ? AppColors.income : AppColors.expense,
-                  Icons.account_balance_wallet_outlined,
-                  borderColor: balance >= 0 ? AppColors.income : AppColors.expense,
-                ),
-              ),
+              Expanded(child: _metric('Saídas', money(expense), AppColors.expense, Icons.arrow_downward)),
             ],
           ),
           const SizedBox(height: 14),
@@ -155,14 +161,14 @@ class _YearScreenState extends State<YearScreen> {
                 ),
               ),
               const SizedBox(width: 14),
+              Expanded(child: _miniStat('Lançamentos no ano', '${transactions.length}')),
+              const SizedBox(width: 14),
               Expanded(
                 child: _miniStat(
                   'Melhor mês',
-                  bestMonth == null ? '--' : shortMonth(bestMonth.key + 1),
+                  bestMonth == null ? '--' : fullMonth(bestMonth.key + 1),
                 ),
               ),
-              const SizedBox(width: 14),
-              Expanded(child: _miniStat('Lançamentos no ano', '${transactions.length}')),
             ],
           ),
           const SizedBox(height: 14),
@@ -182,7 +188,7 @@ class _YearScreenState extends State<YearScreen> {
                 child: _card(
                   title: 'Entradas por categoria',
                   subtitle: 'Ano de ${widget.year}',
-                  child: loading ? _spinner() : CategoryChart(spent: earnedByCategory),
+                  child: loading ? _spinner() : CategoryChart(spent: earnedByCategory, isIncome: true),
                 ),
               ),
             ],

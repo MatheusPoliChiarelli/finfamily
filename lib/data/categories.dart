@@ -25,6 +25,7 @@ class Categories {
     Category(id: 'combustivel', name: 'Combustível', icon: Icons.local_gas_station_outlined, color: 0xFFEF9F27),
     Category(id: 'vise_versa', name: 'Compra Roupa', icon: Icons.checkroom_outlined, color: 0xFFED93B1),
     Category(id: 'robmotors', name: 'Compra Carro', icon: Icons.directions_car_outlined, color: 0xFF378ADD),
+    Category(id: 'custo_carro', name: 'RobMotors', icon: Icons.build_outlined, color: 0xFF378ADD),
     Category(id: 'motoboy', name: 'Motoboy', icon: Icons.two_wheeler_outlined, color: 0xFFEF9F27),
     Category(id: 'correios', name: 'Correios', icon: Icons.local_shipping_outlined, color: 0xFF5DCAA5),
     Category(id: 'joao', name: 'João', icon: Icons.person_outline, color: 0xFF85B7EB),
@@ -83,11 +84,12 @@ class Categories {
     Category(id: 'investimentos', name: 'Investimentos', icon: Icons.trending_up, color: 0xFF97C459, isIncome: true),
     Category(id: 'cartao_rosangela', name: 'Cartão Rosângela', icon: Icons.credit_card_outlined, color: 0xFFED93B1, isIncome: true),
     Category(id: 'outras_receitas', name: 'Outros', icon: Icons.category_outlined, color: 0xFF888780, isIncome: true),
+    Category(id: 'vale_alimentacao', name: 'Vale-Alimentação', icon: Icons.restaurant_outlined, color: 0xFF00B336, isIncome: true),
   ];
 
   static List<Category> get all => [...expenses, ...incomes];
 
-  static Category byId(String id) {
+  static Category byId(String id, {bool isIncome = false}) {
     if (isTransfer(id)) {
       final bankId = id.substring(transferPrefix.length);
       final bank = Banks.byId(bankId);
@@ -98,7 +100,10 @@ class Categories {
         color: bank.color.toARGB32(),
       );
     }
-    return all.firstWhere(
+
+    final source = isIncome ? [...incomes, ...expenses] : all;
+
+    return source.firstWhere(
       (c) => c.id == id,
       orElse: () => expenses.last,
     );

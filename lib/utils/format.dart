@@ -9,6 +9,7 @@ final _fullDayLabel = DateFormat("d 'de' MMMM", 'pt_BR');
 final _weekday = DateFormat('EEEE', 'pt_BR');
 final _fullDate = DateFormat("d 'de' MMMM 'de' y", 'pt_BR');
 final _shortMonth = DateFormat('MMM', 'pt_BR');
+final _fullMonth = DateFormat('MMMM', 'pt_BR');
 
 String fullDate(DateTime date) => _fullDate.format(date);
 
@@ -32,6 +33,11 @@ String monthLabel(DateTime date) {
 String shortMonth(int month) {
   final raw = _shortMonth.format(DateTime(2000, month));
   return raw[0].toUpperCase() + raw.substring(1).replaceAll('.', '');
+}
+
+String fullMonth(int month) {
+  final raw = _fullMonth.format(DateTime(2000, month));
+  return raw[0].toUpperCase() + raw.substring(1);
 }
 
 

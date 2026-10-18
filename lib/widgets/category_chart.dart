@@ -5,9 +5,10 @@ import '../theme/app_theme.dart';
 import '../utils/format.dart';
 
 class CategoryChart extends StatelessWidget {
-  const CategoryChart({super.key, required this.spent});
+  const CategoryChart({super.key, required this.spent, this.isIncome = false});
 
   final Map<String, double> spent;
+  final bool isIncome;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +33,7 @@ class CategoryChart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: entries.map((e) {
-        final category = Categories.byId(e.key);
+        final category = Categories.byId(e.key, isIncome: isIncome);
         final ratio = e.value / max;
         final share = total == 0 ? 0.0 : e.value / total * 100;
 
